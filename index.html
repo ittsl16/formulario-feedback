@@ -760,10 +760,10 @@
                             <label for="cuadrilla-lider" class="required">Cuadrilla del líder</label>
                             <select id="cuadrilla-lider" required>
                                 <option value="">Seleccionar cuadrilla</option>
-                                <option value="Cuadrilla A"> A</option>
-                                <option value="Cuadrilla B"> B</option>
-                                <option value="Cuadrilla C">C</option>
-                                <option value="Cuadrilla D"> D</option>
+                                <option value="A"> A</option>
+                                <option value="B"> B</option>
+                                <option value="C">C</option>
+                                <option value="D"> D</option>
                                 <option value="Otra">Otra</option>
                             </select>
                         </div>
@@ -792,10 +792,10 @@
                                 <label for="cuadrilla-colaborador" class="required">Cuadrilla del colaborador</label>
                                 <select id="cuadrilla-colaborador" required>
                                     <option value="">Seleccionar cuadrilla</option>
-                                    <option value="Cuadrilla A">A</option>
-                                    <option value="Cuadrilla B">B</option>
-                                    <option value="Cuadrilla C">C</option>
-                                    <option value="Cuadrilla D">D</option>
+                                    <option value="A">A</option>
+                                    <option value="B">B</option>
+                                    <option value="C">C</option>
+                                    <option value="D">D</option>
                                     <option value="Ninguna">Otra</option>
                                 </select>
                             </div>
@@ -1015,10 +1015,10 @@
                             <label for="cuadrilla-lider-verbal" class="required">Cuadrilla del líder</label>
                             <select id="cuadrilla-lider-verbal" required>
                                 <option value="">Seleccionar cuadrilla</option>
-                                <option value="Cuadrilla A">A</option>
-                                <option value="Cuadrilla B">B</option>
-                                <option value="Cuadrilla C">C</option>
-                                <option value="Cuadrilla D">D</option>
+                                <option value="A">A</option>
+                                <option value="B">B</option>
+                                <option value="C">C</option>
+                                <option value="D">D</option>
                                 <option value="Otra">Otra</option>
                             </select>
                         </div>
@@ -1047,10 +1047,10 @@
                                 <label for="cuadrilla-verbal-colaborador" class="required">Cuadrilla del colaborador</label>
                                 <select id="cuadrilla-verbal-colaborador" required>
                                     <option value="">Seleccionar cuadrilla</option>
-                                    <option value="Cuadrilla A">A</option>
-                                    <option value="Cuadrilla B">B</option>
-                                    <option value="Cuadrilla C">C</option>
-                                    <option value="Cuadrilla D">D</option>
+                                    <option value="A">A</option>
+                                    <option value="B">B</option>
+                                    <option value="C">C</option>
+                                    <option value="D">D</option>
                                     <option value="Otra">Otra</option>
                                     
                                 </select>
@@ -1285,12 +1285,12 @@
     let supabaseClient = null;
     
     const lideres = [
-        {id: "1042", nombre: "RODRIGUEZ ALAMILLA JUAN FELIX", rol: "SUPERVISOR", area: "C"},
-        {id: "1064", nombre: "CASTILLO RODRIGUEZ SERGIO", rol: "SUPERVISOR SENIOR", area: "C"},
-        {id: "1813", nombre: "VILLAGOMEZ RAMIREZ MARIO", rol: "SUPERVISOR", area: "D"},
-        {id: "3846", nombre: "BRIOSO PEREZ JESUS GUADALUPE", rol: "SUPERVISOR", area: "A"},
-        {id: "4497", nombre: "CORTEZ ACUÑA IGNACIO", rol: "SUPERVISOR SENIOR", area: "B"},
-        {id: "73313", nombre: "HERNANDEZ GARDUÑO CARLOS ADRIAN", rol: "GERENTE", area: "GERENCIA"}
+        {id: "1042", nombre: "RODRIGUEZ ALAMILLA JUAN FELIX"},
+        {id: "1064", nombre: "CASTILLO RODRIGUEZ SERGIO"},
+        {id: "1813", nombre: "VILLAGOMEZ RAMIREZ MARIO"},
+        {id: "3846", nombre: "BRIOSO PEREZ JESUS GUADALUPE"},
+        {id: "4497", nombre: "CORTEZ ACUÑA IGNACIO"},
+    
     ];
     
     // ============================================
@@ -1324,164 +1324,7 @@
     // FUNCIONES PARA CANVAS
     // ============================================
     
-    function initializeAllCanvas() {
-        const canvasConfigs = [
-            {id: 'signature-canvas-colaborador', clearBtn: 'clear-colaborador'},
-            {id: 'signature-canvas-supervisor', clearBtn: 'clear-supervisor'},
-            {id: 'signature-canvas-sindical', clearBtn: 'clear-sindical'},
-            {id: 'signature-canvas-rh', clearBtn: 'clear-rh'},
-            {id: 'signature-canvas-verbal-colaborador', clearBtn: 'clear-verbal-colaborador'},
-            {id: 'signature-canvas-verbal-supervisor', clearBtn: 'clear-verbal-supervisor'}
-        ];
-        
-        canvasConfigs.forEach(config => {
-            initializeCanvas(config.id, config.clearBtn);
-        });
-    }
-    
-    function initializeCanvas(canvasId, clearBtnId) {
-        const canvas = document.getElementById(canvasId);
-        if (!canvas) return;
-        
-        const ctx = canvas.getContext('2d');
-        
-        const updateCanvasSize = () => {
-            const parentWidth = canvas.parentElement.clientWidth;
-            canvas.width = parentWidth;
-            canvas.height = 150;
-            
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.strokeStyle = '#333333';
-            ctx.lineWidth = 2;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-        };
-        
-        updateCanvasSize();
-        
-        let isDrawing = false;
-        let lastX = 0;
-        let lastY = 0;
-        
-        function startDrawing(e) {
-            isDrawing = true;
-            [lastX, lastY] = getCoordinates(e);
-        }
-        
-        function draw(e) {
-            if (!isDrawing) return;
-            
-            const [x, y] = getCoordinates(e);
-            
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-            ctx.lineTo(x, y);
-            ctx.stroke();
-            
-            [lastX, lastY] = [x, y];
-        }
-        
-        function stopDrawing() {
-            isDrawing = false;
-        }
-        
-        function getCoordinates(e) {
-            let x, y;
-            
-            if (e.type.includes('mouse')) {
-                x = e.offsetX;
-                y = e.offsetY;
-            } else if (e.type.includes('touch')) {
-                const rect = canvas.getBoundingClientRect();
-                x = e.touches[0].clientX - rect.left;
-                y = e.touches[0].clientY - rect.top;
-            }
-            
-            return [x, y];
-        }
-        
-        canvas.addEventListener('mousedown', startDrawing);
-        canvas.addEventListener('mousemove', draw);
-        canvas.addEventListener('mouseup', stopDrawing);
-        canvas.addEventListener('mouseout', stopDrawing);
-        
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            startDrawing(e);
-        });
-        
-        canvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            draw(e);
-        });
-        
-        canvas.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            stopDrawing(e);
-        });
-        
-        const clearBtn = document.getElementById(clearBtnId);
-        if (clearBtn) {
-            clearBtn.addEventListener('click', () => {
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.strokeStyle = '#333333';
-                ctx.lineWidth = 2;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-            });
-        }
-        
-        window.addEventListener('resize', updateCanvasSize);
-    }
-    
-    function capturarFirmas(formType = 'escrita') {
-        const firmas = {};
-        
-        function canvasTieneContenido(canvas) {
-            if (!canvas) return false;
-            const ctx = canvas.getContext('2d');
-            const pixelBuffer = new Uint32Array(
-                ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer
-            );
-            return pixelBuffer.some(color => color !== 0);
-        }
-        
-        if (formType === 'escrita') {
-            const canvasIds = [
-                'signature-canvas-colaborador',
-                'signature-canvas-supervisor',
-                'signature-canvas-sindical',
-                'signature-canvas-rh'
-            ];
-            
-            const nombres = ['colaborador', 'supervisor', 'sindical', 'rh'];
-            
-            canvasIds.forEach((canvasId, index) => {
-                const canvas = document.getElementById(canvasId);
-                if (canvas && canvasTieneContenido(canvas)) {
-                    firmas[nombres[index]] = canvas.toDataURL('image/png');
-                }
-            });
-        } else if (formType === 'verbal') {
-            const canvasIds = [
-                'signature-canvas-verbal-colaborador',
-                'signature-canvas-verbal-supervisor'
-            ];
-            
-            const nombres = ['colaborador', 'supervisor'];
-            
-            canvasIds.forEach((canvasId, index) => {
-                const canvas = document.getElementById(canvasId);
-                if (canvas && canvasTieneContenido(canvas)) {
-                    firmas[nombres[index]] = canvas.toDataURL('image/png');
-                }
-            });
-        }
-        
-        return firmas;
-    }
+
     
     // ============================================
     // AUTENTICACIÓN
@@ -1732,6 +1575,29 @@
     
     async function submitFormEscrita(e) {
         e.preventDefault();
+            // Validar firmas antes de proceder
+    const validacionFirmas = validarFirmasCompletas('escrita');
+    if (!validacionFirmas.todasCompletas) {
+        alert(`❌ Faltan las siguientes firmas:\n\n${validacionFirmas.firmasFaltantes.join('\n')}\n\nPor favor complete todas las firmas requeridas.`);
+        
+        const primerCanvasId = validacionFirmas.firmasFaltantes[0];
+        const canvasMap = {
+            'Colaborador': 'signature-canvas-colaborador',
+            'Supervisor': 'signature-canvas-supervisor',
+            'Líder Sindical': 'signature-canvas-sindical',
+            'Recursos Humanos': 'signature-canvas-rh'
+        };
+        
+        const canvasId = canvasMap[primerCanvasId];
+        if (canvasId) {
+            const canvas = document.getElementById(canvasId);
+            if (canvas) {
+                canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+        
+        return;
+    }
         
         const areaSelect = document.getElementById('area').value;
         let area = areaSelect;
@@ -2147,171 +2013,185 @@ row.appendChild(tdArea);
     // FUNCIONES DE EXPORTACIÓN
     // ============================================
     
-    async function exportExcel() {
-        try {
-            const { data: escritas } = await supabaseClient
-                .from('retroalimentaciones_escritas')
-                .select('*')
-                .order('fecha', { ascending: false });
+   async function exportExcel() {
+    try {
+        const { data: escritas } = await supabaseClient
+            .from('retroalimentaciones_escritas')
+            .select('*')
+            .order('fecha', { ascending: false });
+        
+        const { data: verbales } = await supabaseClient
+            .from('retroalimentaciones_verbales')
+            .select('*')
+            .order('fecha', { ascending: false });
+        
+        if ((!escritas || escritas.length === 0) && (!verbales || verbales.length === 0)) {
+            alert('No hay datos para exportar');
+            return;
+        }
+        
+        const datosProcesados = [];
+        const conteoEmpleados = {};
+        
+        // Función para extraer solo la letra de la cuadrilla
+        function extraerLetraCuadrilla(cuadrilla) {
+            if (!cuadrilla) return '';
             
-            const { data: verbales } = await supabaseClient
-                .from('retroalimentaciones_verbales')
-                .select('*')
-                .order('fecha', { ascending: false });
-            
-            if ((!escritas || escritas.length === 0) && (!verbales || verbales.length === 0)) {
-                alert('No hay datos para exportar');
-                return;
+            // Si ya es una sola letra
+            if (cuadrilla.length === 1) {
+                return cuadrilla;
             }
             
-            const datosProcesados = [];
-            const conteoEmpleados = {};
-            
-            if (escritas) {
-                escritas.forEach(item => {
-                    const numEmpleado = item.num_empleado;
-                    if (!conteoEmpleados[numEmpleado]) {
-                        conteoEmpleados[numEmpleado] = {
-                            motivacion: 0,
-                            desarrollo: 0,
-                            verbal: 0,
-                            total: 0
-                        };
-                    }
-                    
-                    if (item.tipo_feedback === 'Motivación') {
-                        conteoEmpleados[numEmpleado].motivacion++;
-                    } else if (item.tipo_feedback === 'Desarrollo') {
-                        conteoEmpleados[numEmpleado].desarrollo++;
-                    }
-                    conteoEmpleados[numEmpleado].total++;
-                    
+            // Extraer la última letra (A, B, C, D, etc.)
+            const match = cuadrilla.match(/([A-Za-z])$/);
+            return match ? match[1] : cuadrilla;
+        }
+        
+        if (escritas) {
+            escritas.forEach(item => {
+                const numEmpleado = item.num_empleado;
+                if (!conteoEmpleados[numEmpleado]) {
+                    conteoEmpleados[numEmpleado] = {
+                        motivacion: 0,
+                        desarrollo: 0,
+                        verbal: 0,
+                        total: 0
+                    };
+                }
+                
+                if (item.tipo_feedback === 'Motivación') {
+                    conteoEmpleados[numEmpleado].motivacion++;
+                } else if (item.tipo_feedback === 'Desarrollo') {
+                    conteoEmpleados[numEmpleado].desarrollo++;
+                }
+                conteoEmpleados[numEmpleado].total++;
+                
+                datosProcesados.push({
+                    'N.Empleado': item.num_empleado,
+                    'Nombre': item.nombre_colaborador || 'N/A',
+                    '#Retros': conteoEmpleados[numEmpleado].total,
+                    'Líder que retroalimenta': item.lider_nombre?.split(' - ')[0] || 'N/A',
+                    'Cuadrilla colaborador': extraerLetraCuadrilla(item.cuadrilla_colaborador) || 'N/A',
+                    'Cuadrilla líder': extraerLetraCuadrilla(item.cuadrilla_lider) || 'N/A',
+                    'Motivación': conteoEmpleados[numEmpleado].motivacion,
+                    'Desarrollo': conteoEmpleados[numEmpleado].desarrollo,
+                    'Verbal': 0,
+                    'Tipo': 'Escrita',
+                    'Folio': item.folio,
+                    'Fecha': item.fecha,
+                    'Área': item.area || 'N/A'
+                });
+            });
+        }
+        
+        if (verbales) {
+            verbales.forEach(item => {
+                const numEmpleado = item.num_empleado;
+                if (!conteoEmpleados[numEmpleado]) {
+                    conteoEmpleados[numEmpleado] = {
+                        motivacion: 0,
+                        desarrollo: 0,
+                        verbal: 0,
+                        total: 0
+                    };
+                }
+                
+                conteoEmpleados[numEmpleado].verbal++;
+                conteoEmpleados[numEmpleado].total++;
+                
+                const registroExistente = datosProcesados.find(d => d['N.Empleado'] === numEmpleado);
+                if (registroExistente) {
+                    registroExistente['#Retros'] = conteoEmpleados[numEmpleado].total;
+                    registroExistente['Verbal'] = conteoEmpleados[numEmpleado].verbal;
+                } else {
                     datosProcesados.push({
                         'N.Empleado': item.num_empleado,
                         'Nombre': item.nombre_colaborador || 'N/A',
                         '#Retros': conteoEmpleados[numEmpleado].total,
                         'Líder que retroalimenta': item.lider_nombre?.split(' - ')[0] || 'N/A',
-                        'Cuadrilla colaborador': item.cuadrilla_colaborador || 'N/A',
-                        'Cuadrilla líder': item.cuadrilla_lider || 'N/A',
-                        'Motivación': conteoEmpleados[numEmpleado].motivacion,
-                        'Desarrollo': conteoEmpleados[numEmpleado].desarrollo,
-                        'Verbal': 0,
-                        'Tipo': 'Escrita',
+                        'Cuadrilla colaborador': extraerLetraCuadrilla(item.cuadrilla_colaborador) || 'N/A',
+                        'Cuadrilla líder': extraerLetraCuadrilla(item.cuadrilla_lider) || 'N/A',
+                        'Motivación': 0,
+                        'Desarrollo': 0,
+                        'Verbal': conteoEmpleados[numEmpleado].verbal,
+                        'Tipo': 'Verbal',
                         'Folio': item.folio,
                         'Fecha': item.fecha,
                         'Área': item.area || 'N/A'
                     });
-                });
-            }
-            
-            if (verbales) {
-                verbales.forEach(item => {
-                    const numEmpleado = item.num_empleado;
-                    if (!conteoEmpleados[numEmpleado]) {
-                        conteoEmpleados[numEmpleado] = {
-                            motivacion: 0,
-                            desarrollo: 0,
-                            verbal: 0,
-                            total: 0
-                        };
-                    }
-                    
-                    conteoEmpleados[numEmpleado].verbal++;
-                    conteoEmpleados[numEmpleado].total++;
-                    
-                    const registroExistente = datosProcesados.find(d => d['N.Empleado'] === numEmpleado);
-                    if (registroExistente) {
-                        registroExistente['#Retros'] = conteoEmpleados[numEmpleado].total;
-                        registroExistente['Verbal'] = conteoEmpleados[numEmpleado].verbal;
-                    } else {
-                        datosProcesados.push({
-                            'N.Empleado': item.num_empleado,
-                            'Nombre': item.nombre_colaborador || 'N/A',
-                            '#Retros': conteoEmpleados[numEmpleado].total,
-                            'Líder que retroalimenta': item.lider_nombre?.split(' - ')[0] || 'N/A',
-                            'Cuadrilla colaborador': item.cuadrilla_colaborador || 'N/A',
-                            'Cuadrilla líder': item.cuadrilla_lider || 'N/A',
-                            'Motivación': 0,
-                            'Desarrollo': 0,
-                            'Verbal': conteoEmpleados[numEmpleado].verbal,
-                            'Tipo': 'Verbal',
-                            'Folio': item.folio,
-                            'Fecha': item.fecha,
-                            'Área': 'N/A'
-                        });
-                    }
-                });
-            }
-            
-            const datosConsolidados = [];
-            const empleadosUnicos = [...new Set(datosProcesados.map(d => d['N.Empleado']))];
-            
-            empleadosUnicos.forEach(numEmpleado => {
-                const registrosEmpleado = datosProcesados.filter(d => d['N.Empleado'] === numEmpleado);
-                const ultimoRegistro = registrosEmpleado[0];
-                
-                datosConsolidados.push({
-                    'N.Empleado': numEmpleado,
-                    'Nombre': ultimoRegistro.Nombre,
-                    '#Retros': conteoEmpleados[numEmpleado].total,
-                    'Líder que retroalimenta': ultimoRegistro['Líder que retroalimenta'],
-                    'Cuadrilla colaborador': ultimoRegistro['Cuadrilla colaborador'],
-                    'Cuadrilla líder': ultimoRegistro['Cuadrilla líder'],
-                    'Motivación': conteoEmpleados[numEmpleado].motivacion,
-                    'Desarrollo': conteoEmpleados[numEmpleado].desarrollo,
-                    'Verbal': conteoEmpleados[numEmpleado].verbal
-                });
+                }
             });
-            
-            const wb = XLSX.utils.book_new();
-            
-            const ws1 = XLSX.utils.json_to_sheet(datosConsolidados);
-            XLSX.utils.book_append_sheet(wb, ws1, "Resumen por Empleado");
-            
-            if (escritas && escritas.length > 0) {
-                const escritasSimplificadas = escritas.map(item => ({
-                    'Folio': item.folio,
-                    'Fecha': item.fecha,
-                    'N.Empleado': item.num_empleado,
-                    'Nombre': item.nombre_colaborador || 'N/A',
-                    'Tipo Feedback': item.tipo_feedback,
-                    'Líder': item.lider_nombre,
-                    'Cuadrilla Líder': item.cuadrilla_lider || 'N/A',
-                    'Cuadrilla Colaborador': item.cuadrilla_colaborador,
-                    'Área': item.area,
-                    'Impactos': item.impactos?.join(', '),
-                    'Descripción': item.descripcion_impacto
-                }));
-                const ws2 = XLSX.utils.json_to_sheet(escritasSimplificadas);
-                XLSX.utils.book_append_sheet(wb, ws2, "Retroalimentaciones Escritas");
-            }
-            
-            if (verbales && verbales.length > 0) {
-                const verbalesSimplificadas = verbales.map(item => ({
-                    'Folio': item.folio,
-                    'Fecha': item.fecha,
-                    'N.Empleado': item.num_empleado,
-                    'Nombre': item.nombre_colaborador || 'N/A',
-                    'Líder': item.lider_nombre,
-                    'Cuadrilla Líder': item.cuadrilla_lider || 'N/A',
-                    'Cuadrilla Colaborador': item.cuadrilla_colaborador,
-                     'Área': item.area || 'N/A', 
-                    'Razón': item.razon
-                }));
-                const ws3 = XLSX.utils.json_to_sheet(verbalesSimplificadas);
-                XLSX.utils.book_append_sheet(wb, ws3, "Retroalimentaciones Verbales");
-            }
-            
-            const fecha = new Date().toISOString().split('T')[0];
-            XLSX.writeFile(wb, `Reporte_Retroalimentaciones_${fecha}.xlsx`);
-            
-            alert('✅ Archivo Excel generado exitosamente');
-            
-        } catch (error) {
-            console.error('Error exportando Excel:', error);
-            alert('Error al exportar: ' + error.message);
         }
+        
+        const datosConsolidados = [];
+        const empleadosUnicos = [...new Set(datosProcesados.map(d => d['N.Empleado']))];
+        
+        empleadosUnicos.forEach(numEmpleado => {
+            const registrosEmpleado = datosProcesados.filter(d => d['N.Empleado'] === numEmpleado);
+            const ultimoRegistro = registrosEmpleado[0];
+            
+            datosConsolidados.push({
+                'N.Empleado': numEmpleado,
+                'Nombre': ultimoRegistro.Nombre,
+                '#Retros': conteoEmpleados[numEmpleado].total,
+                'Líder que retroalimenta': ultimoRegistro['Líder que retroalimenta'],
+                'Cuadrilla colaborador': ultimoRegistro['Cuadrilla colaborador'],
+                'Cuadrilla líder': ultimoRegistro['Cuadrilla líder'],
+                'Motivación': conteoEmpleados[numEmpleado].motivacion,
+                'Desarrollo': conteoEmpleados[numEmpleado].desarrollo,
+                'Verbal': conteoEmpleados[numEmpleado].verbal
+            });
+        });
+        
+        const wb = XLSX.utils.book_new();
+        
+        const ws1 = XLSX.utils.json_to_sheet(datosConsolidados);
+        XLSX.utils.book_append_sheet(wb, ws1, "Resumen por Empleado");
+        
+        if (escritas && escritas.length > 0) {
+            const escritasSimplificadas = escritas.map(item => ({
+                'Folio': item.folio,
+                'Fecha': item.fecha,
+                'N.Empleado': item.num_empleado,
+                'Nombre': item.nombre_colaborador || 'N/A',
+                'Tipo Feedback': item.tipo_feedback,
+                'Líder': item.lider_nombre,
+                'Cuadrilla Líder': extraerLetraCuadrilla(item.cuadrilla_lider) || 'N/A',
+                'Cuadrilla Colaborador': extraerLetraCuadrilla(item.cuadrilla_colaborador) || 'N/A',
+                'Área': item.area,
+                'Impactos': item.impactos?.join(', '),
+                'Descripción': item.descripcion_impacto
+            }));
+            const ws2 = XLSX.utils.json_to_sheet(escritasSimplificadas);
+            XLSX.utils.book_append_sheet(wb, ws2, "Retroalimentaciones Escritas");
+        }
+        
+        if (verbales && verbales.length > 0) {
+            const verbalesSimplificadas = verbales.map(item => ({
+                'Folio': item.folio,
+                'Fecha': item.fecha,
+                'N.Empleado': item.num_empleado,
+                'Nombre': item.nombre_colaborador || 'N/A',
+                'Líder': item.lider_nombre,
+                'Cuadrilla Líder': extraerLetraCuadrilla(item.cuadrilla_lider) || 'N/A',
+                'Cuadrilla Colaborador': extraerLetraCuadrilla(item.cuadrilla_colaborador) || 'N/A',
+                'Área': item.area || 'N/A',
+                'Razón': item.razon
+            }));
+            const ws3 = XLSX.utils.json_to_sheet(verbalesSimplificadas);
+            XLSX.utils.book_append_sheet(wb, ws3, "Retroalimentaciones Verbales");
+        }
+        
+        const fecha = new Date().toISOString().split('T')[0];
+        XLSX.writeFile(wb, `Reporte_Retroalimentaciones_${fecha}.xlsx`);
+        
+        alert('✅ Archivo Excel generado exitosamente');
+        
+    } catch (error) {
+        console.error('Error exportando Excel:', error);
+        alert('Error al exportar: ' + error.message);
     }
+}
     
     async function generatePDF(feedbackId, tipo) {
     try {
@@ -2677,7 +2557,287 @@ yPos += 15;
             alert('Error al generar reporte: ' + error.message);
         }
     }
+    // ============================================
+// FUNCIONES MEJORADAS PARA CANVAS Y FIRMAS
+// ============================================
+
+// Variables globales para instancias de canvas
+let canvasInstances = {};
+
+function initializeCanvas(canvasId, clearBtnId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
     
+    const ctx = canvas.getContext('2d');
+    
+    // Configuración para mejor soporte móvil
+    canvas.style.touchAction = 'none'; // Previene scroll mientras se dibuja
+    
+    const updateCanvasSize = () => {
+        const parentWidth = canvas.parentElement.clientWidth;
+        canvas.width = parentWidth * (window.devicePixelRatio || 1);
+        canvas.height = 150 * (window.devicePixelRatio || 1);
+        
+        // Escalar el contexto para alta resolución
+        ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+        
+        // Hacer canvas responsivo visualmente
+        canvas.style.width = `${parentWidth}px`;
+        canvas.style.height = '150px';
+        
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#333333';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+    };
+    
+    updateCanvasSize();
+    
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
+    let hasSignature = false;
+    
+    function getCoordinates(e) {
+        const rect = canvas.getBoundingClientRect();
+        let x, y;
+        
+        if (e.type.includes('mouse')) {
+            x = e.clientX - rect.left;
+            y = e.clientY - rect.top;
+        } else if (e.type.includes('touch')) {
+            e.preventDefault();
+            x = e.touches[0].clientX - rect.left;
+            y = e.touches[0].clientY - rect.top;
+        }
+        
+        // Ajustar coordenadas para el escalado
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        
+        return [x * scaleX, y * scaleY];
+    }
+    
+    function startDrawing(e) {
+        isDrawing = true;
+        [lastX, lastY] = getCoordinates(e);
+        hasSignature = true;
+        
+        // Dibujar un punto inicial
+        ctx.beginPath();
+        ctx.arc(lastX, lastY, ctx.lineWidth / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+    }
+    
+    function draw(e) {
+        if (!isDrawing) return;
+        
+        const [x, y] = getCoordinates(e);
+        
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        
+        [lastX, lastY] = [x, y];
+    }
+    
+    function stopDrawing() {
+        if (isDrawing) {
+            isDrawing = false;
+            ctx.beginPath();
+        }
+    }
+    
+    // Eventos para desktop
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseout', stopDrawing);
+    
+    // Eventos para móvil
+    canvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+            startDrawing(e);
+        }
+    }, { passive: false });
+    
+    canvas.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1) {
+            draw(e);
+        }
+    }, { passive: false });
+    
+    canvas.addEventListener('touchend', stopDrawing);
+    canvas.addEventListener('touchcancel', stopDrawing);
+    
+    // Limpiar firma
+    const clearBtn = document.getElementById(clearBtnId);
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            hasSignature = false;
+        });
+    }
+    
+    window.addEventListener('resize', updateCanvasSize);
+    
+    // Retornar objeto con estado de la firma
+    return {
+        canvas: canvas,
+        hasSignature: () => hasSignature,
+        clear: () => {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            hasSignature = false;
+        }
+    };
+}
+
+function initializeAllCanvas() {
+    const canvasConfigs = [
+        {id: 'signature-canvas-colaborador', clearBtn: 'clear-colaborador', required: true},
+        {id: 'signature-canvas-supervisor', clearBtn: 'clear-supervisor', required: true},
+        {id: 'signature-canvas-sindical', clearBtn: 'clear-sindical', required: true},
+        {id: 'signature-canvas-rh', clearBtn: 'clear-rh', required: true},
+        {id: 'signature-canvas-verbal-colaborador', clearBtn: 'clear-verbal-colaborador', required: true},
+        {id: 'signature-canvas-verbal-supervisor', clearBtn: 'clear-verbal-supervisor', required: true}
+    ];
+    
+    canvasConfigs.forEach(config => {
+        canvasInstances[config.id] = initializeCanvas(config.id, config.clearBtn);
+    });
+}
+
+// ============================================
+// VALIDACIONES MEJORADAS DE FIRMAS
+// ============================================
+
+function validarFirmasCompletas(formType = 'escrita') {
+    const firmasRequeridas = {
+        'escrita': [
+            'signature-canvas-colaborador',
+            'signature-canvas-supervisor',
+            'signature-canvas-sindical',
+            'signature-canvas-rh'
+        ],
+        'verbal': [
+            'signature-canvas-verbal-colaborador',
+            'signature-canvas-verbal-supervisor'
+        ]
+    };
+    
+    const canvasIds = firmasRequeridas[formType] || [];
+    const firmasFaltantes = [];
+    
+    canvasIds.forEach(canvasId => {
+        const instance = canvasInstances[canvasId];
+        if (instance && !instance.hasSignature()) {
+            const nombreFirma = canvasId.includes('colaborador') ? 'Colaborador' :
+                              canvasId.includes('supervisor') ? 'Supervisor' :
+                              canvasId.includes('sindical') ? 'Líder Sindical' :
+                              canvasId.includes('rh') ? 'Recursos Humanos' :
+                              'Firma';
+            
+            firmasFaltantes.push(nombreFirma);
+            
+            const canvas = document.getElementById(canvasId);
+            if (canvas) {
+                canvas.style.border = '2px solid #CF002E';
+                canvas.style.borderRadius = '8px';
+                
+                setTimeout(() => {
+                    canvas.style.border = '1px solid var(--medium-gray)';
+                }, 3000);
+            }
+        }
+    });
+    
+    return {
+        todasCompletas: firmasFaltantes.length === 0,
+        firmasFaltantes: firmasFaltantes
+    };
+}
+
+function canvasTieneContenido(canvas) {
+    if (!canvas) return false;
+    
+    const ctx = canvas.getContext('2d');
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3];
+        
+        if (a > 10 && (r < 250 || g < 250 || b < 250)) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+function capturarFirmas(formType = 'escrita') {
+    const firmas = {};
+    
+    const firmasConfig = {
+        'escrita': [
+            {id: 'signature-canvas-colaborador', key: 'colaborador'},
+            {id: 'signature-canvas-supervisor', key: 'supervisor'},
+            {id: 'signature-canvas-sindical', key: 'sindical'},
+            {id: 'signature-canvas-rh', key: 'rh'}
+        ],
+        'verbal': [
+            {id: 'signature-canvas-verbal-colaborador', key: 'colaborador'},
+            {id: 'signature-canvas-verbal-supervisor', key: 'supervisor'}
+        ]
+    };
+    
+    const config = firmasConfig[formType] || [];
+    
+    config.forEach(({id, key}) => {
+        const canvas = document.getElementById(id);
+        if (canvas && canvasTieneContenido(canvas)) {
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            tempCanvas.width = 400;
+            tempCanvas.height = 150;
+            
+            tempCtx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
+            firmas[key] = tempCanvas.toDataURL('image/png', 0.7);
+        }
+    });
+    
+    return firmas;
+}
+
+// ============================================
+// FUNCIÓN AUXILIAR PARA PROCESAR CUADRILLAS
+// ============================================
+
+function extraerLetraCuadrilla(cuadrilla) {
+    if (!cuadrilla) return '';
+    
+    if (cuadrilla.length === 1) {
+        return cuadrilla;
+    }
+    
+    const match = cuadrilla.match(/[A-Za-z]$/);
+    return match ? match[0] : cuadrilla;
+}
     // ============================================
     // FUNCIONES AUXILIARES
     // ============================================
