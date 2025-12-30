@@ -1285,11 +1285,12 @@
     let supabaseClient = null;
     
     const lideres = [
-        {id: "1042", nombre: "RODRIGUEZ ALAMILLA JUAN FELIX"},
-        {id: "1064", nombre: "CASTILLO RODRIGUEZ SERGIO"},
-        {id: "1813", nombre: "VILLAGOMEZ RAMIREZ MARIO"},
-        {id: "3846", nombre: "BRIOSO PEREZ JESUS GUADALUPE"},
-        {id: "4497", nombre: "CORTEZ ACUÑA IGNACIO"},
+        {id: "1042", nombre: "RODRIGUEZ ALAMILLA JUAN FELIX", rol: "SUPERVISOR", area: "C"},
+            {id: "1064", nombre: "CASTILLO RODRIGUEZ SERGIO", rol: "SUPERVISOR SENIOR", area: "C"},
+            {id: "1813", nombre: "VILLAGOMEZ RAMIREZ MARIO", rol: "SUPERVISOR", area: "D"},
+            {id: "3846", nombre: "BRIOSO PEREZ JESUS GUADALUPE", rol: "SUPERVISOR", area: "A"},
+            {id: "4497", nombre: "CORTEZ ACUÑA IGNACIO", rol: "SUPERVISOR SENIOR", area: "B"},
+            {id: "73313", nombre: "HERNANDEZ GARDUÑO CARLOS ADRIAN", rol: "GERENTE", area: "GERENCIA"}
     
     ];
     
@@ -2193,7 +2194,7 @@ row.appendChild(tdArea);
     }
 }
     
-    async function generatePDF(feedbackId, tipo) {
+   async function generatePDF(feedbackId, tipo) {
     try {
         let feedback;
         
@@ -2218,6 +2219,15 @@ row.appendChild(tdArea);
             return;
         }
         
+        // Función para extraer solo el nombre del líder
+        function extraerNombreLider(liderNombreCompleto) {
+            if (!liderNombreCompleto) return 'N/A';
+            const partes = liderNombreCompleto.split(' - ');
+            return partes[0];
+        }
+        
+        const nombreLider = extraerNombreLider(feedback.lider_nombre);
+        
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         
@@ -2240,12 +2250,12 @@ row.appendChild(tdArea);
         yPos += 8;
         
         doc.text(`Tipo: ${tipo}`, margin, yPos);
-if (tipo === 'Escrita') {
-    doc.text(`Subtipo: ${feedback.tipo_feedback}`, pageWidth - margin - 40, yPos);
-} else {
-    doc.text(`Área: ${feedback.area || 'N/A'}`, pageWidth - margin - 40, yPos); // ===== NUEVO =====
-}
-yPos += 15;
+        if (tipo === 'Escrita') {
+            doc.text(`Subtipo: ${feedback.tipo_feedback}`, pageWidth - margin - 40, yPos);
+        } else {
+            doc.text(`Área: ${feedback.area || 'N/A'}`, pageWidth - margin - 40, yPos);
+        }
+        yPos += 15;
         
         // ============ INFORMACIÓN GENERAL ============
         if (tipo === 'Escrita') {
@@ -2270,7 +2280,7 @@ yPos += 15;
         doc.setTextColor(0, 0, 0);
         
         // Columna izquierda
-        doc.text(`Líder: ${feedback.lider_nombre || 'N/A'}`, margin, yPos);
+        doc.text(`Líder: ${nombreLider}`, margin, yPos);
         doc.text(`Cuadrilla Líder: ${feedback.cuadrilla_lider || 'N/A'}`, margin, yPos + 8);
         doc.text(`Colaborador: ${feedback.nombre_colaborador || 'N/A'}`, margin, yPos + 16);
         
@@ -2510,36 +2520,37 @@ yPos += 15;
             doc.text('LISTA DE RETROALIMENTACIONES', 20, yPos);
             yPos += 10;
             
-            const headers = [['Folio', 'Fecha', 'Tipo', 'N° Empleado', 'Nombre', 'Líder', 'Cuadrilla Colab']];
-            const data = [];
-            
-            if (escritas) {
-                escritas.forEach(item => {
-                    data.push([
-                        item.folio,
-                        item.fecha,
-                        'Escrita',
-                        item.num_empleado,
-                        item.nombre_colaborador || 'N/A',
-                        item.lider_nombre?.split(' - ')[0] || 'N/A',
-                        item.cuadrilla_colaborador || 'N/A'
-                    ]);
-                });
-            }
-            
-            if (verbales) {
-                verbales.forEach(item => {
-                    data.push([
-                        item.folio,
-                        item.fecha,
-                        'Verbal',
-                        item.num_empleado,
-                        item.nombre_colaborador || 'N/A',
-                        item.lider_nombre?.split(' - ')[0] || 'N/A',
-                        item.cuadrilla_colaborador || 'N/A'
-                    ]);
-                });
-            }
+            // Lista de retroalimentaciones para el PDF general
+const headers = [['Folio', 'Fecha', 'Tipo', 'N° Empleado', 'Nombre', 'Líder', 'Cuadrilla Colab']];
+const data = [];
+
+if (escritas) {
+    escritas.forEach(item => {
+        data.push([
+            item.folio,
+            item.fecha,
+            'Escrita',
+            item.num_empleado,
+            item.nombre_colaborador || 'N/A',
+            item.lider_nombre?.split(' - ')[0] || 'N/A',
+            item.cuadrilla_colaborador || 'N/A'
+        ]);
+    });
+}
+
+if (verbales) {
+    verbales.forEach(item => {
+        data.push([
+            item.folio,
+            item.fecha,
+            'Verbal',
+            item.num_empleado,
+            item.nombre_colaborador || 'N/A',
+            item.lider_nombre?.split(' - ')[0] || 'N/A',
+            item.cuadrilla_colaborador || 'N/A'
+        ]);
+    });
+}
             
             doc.autoTable({
                 startY: yPos,
