@@ -1540,14 +1540,16 @@ function initializeCanvas(canvasId, clearBtnId) {
     });
     
     return {
-        canvas: canvas,
-        hasSignature: () => hasSignature,
-        clear: () => {
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            hasSignature = false;
-        }
-    };
+    canvas: canvas,
+    ctx: ctx,
+    hasSignature: () => hasSignature,
+    clear: () => {
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        hasSignature = false;
+    },
+    getDataURL: () => canvas.toDataURL('image/png', 0.7)
+};
 }
 
 // Agrega esta función para verificar el soporte táctil
@@ -1569,6 +1571,8 @@ function setupTouchSupport() {
 }
 
 // Modifica la función initializeAllCanvas:
+// REEMPLAZA las dos funciones por UNA sola:
+
 function initializeAllCanvas() {
     const canvasConfigs = [
         {id: 'signature-canvas-colaborador', clearBtn: 'clear-colaborador'},
@@ -1579,31 +1583,18 @@ function initializeAllCanvas() {
         {id: 'signature-canvas-verbal-supervisor', clearBtn: 'clear-verbal-supervisor'}
     ];
     
-    // Esperar a que el DOM esté completamente renderizado
-    setTimeout(() => {
-        canvasConfigs.forEach(config => {
-            canvasInstances[config.id] = initializeCanvas(config.id, config.clearBtn);
-        });
-        
-        // Configurar soporte táctil
-        setupTouchSupport();
-    }, 300);
+    canvasInstances = {}; // Limpiar instancias anteriores
+    
+    canvasConfigs.forEach(config => {
+        const instance = initializeCanvas(config.id, config.clearBtn);
+        if (instance) {
+            canvasInstances[config.id] = instance;
+        }
+    });
+    
+    setupTouchSupport();
 }
 
-    function initializeAllCanvas() {
-        const canvasConfigs = [
-            {id: 'signature-canvas-colaborador', clearBtn: 'clear-colaborador', required: true},
-            {id: 'signature-canvas-supervisor', clearBtn: 'clear-supervisor', required: true},
-            {id: 'signature-canvas-sindical', clearBtn: 'clear-sindical', required: true},
-            {id: 'signature-canvas-rh', clearBtn: 'clear-rh', required: true},
-            {id: 'signature-canvas-verbal-colaborador', clearBtn: 'clear-verbal-colaborador', required: true},
-            {id: 'signature-canvas-verbal-supervisor', clearBtn: 'clear-verbal-supervisor', required: true}
-        ];
-        
-        canvasConfigs.forEach(config => {
-            canvasInstances[config.id] = initializeCanvas(config.id, config.clearBtn);
-        });
-    }
 
     // ============================================
     // VALIDACIONES MEJORADAS DE FIRMAS
