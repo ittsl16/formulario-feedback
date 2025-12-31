@@ -622,6 +622,84 @@
             color: #856404;
             border: 1px solid #ffeaa7;
         }
+        /* Mejoras para canvas de firmas */
+.signature-canvas {
+    border: 1px solid var(--medium-gray);
+    border-radius: var(--border-radius);
+    background-color: white;
+    width: 100%;
+    height: 150px;
+    margin-bottom: 15px;
+    cursor: crosshair;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+.signature-container {
+    border: 1px solid var(--medium-gray);
+    border-radius: var(--border-radius);
+    padding: 15px;
+    margin-bottom: 20px;
+    position: relative;
+    background-color: #fafafa;
+}
+
+/* Indicador de firma requerida */
+.signature-container.required::before {
+    content: "*";
+    color: var(--primary-color);
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+/* Mejoras para móvil */
+@media (max-width: 768px) {
+    .signature-canvas {
+        height: 120px;
+    }
+    
+    .signature-container {
+        padding: 10px;
+    }
+    
+    .signature-controls {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .signature-controls button {
+        width: 100%;
+    }
+}
+
+/* Efecto al dibujar */
+.signature-canvas:active {
+    box-shadow: 0 0 0 2px rgba(207, 0, 46, 0.1);
+}
+
+/* Mensaje para móvil */
+.mobile-signature-warning {
+    display: none;
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 15px;
+    font-size: 0.9rem;
+    color: #856404;
+}
+
+@media (max-width: 768px) {
+    .mobile-signature-warning {
+        display: block;
+    }
+}
     </style>
 </head>
 <body>
@@ -1301,144 +1379,216 @@
     // FUNCIONES PARA CANVAS Y FIRMAS (MOVIDAS AL INICIO)
     // ============================================
 
-    function initializeCanvas(canvasId, clearBtnId) {
-        const canvas = document.getElementById(canvasId);
-        if (!canvas) return null;
+function initializeCanvas(canvasId, clearBtnId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Configuración inicial optimizada
+    canvas.style.touchAction = 'none';
+    canvas.style.userSelect = 'none';
+    
+    // Variables de estado
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
+    let hasSignature = false;
+    
+    // Configuración inicial del canvas
+    function setupCanvas() {
+        const parent = canvas.parentElement;
+        const rect = parent.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
         
-        const ctx = canvas.getContext('2d');
+        // Establecer dimensiones físicas
+        canvas.width = rect.width * dpr;
+        canvas.height = 150 * dpr;
         
-        // Configuración para mejor soporte móvil
-        canvas.style.touchAction = 'none'; // Previene scroll mientras se dibuja
+        // Establecer dimensiones CSS
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = '150px';
         
-        const updateCanvasSize = () => {
-            const parentWidth = canvas.parentElement.clientWidth;
-            canvas.width = parentWidth * (window.devicePixelRatio || 1);
-            canvas.height = 150 * (window.devicePixelRatio || 1);
-            
-            // Escalar el contexto para alta resolución
-            ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
-            
-            // Hacer canvas responsivo visualmente
-            canvas.style.width = `${parentWidth}px`;
-            canvas.style.height = '150px';
-            
+        // Escalar contexto
+        ctx.scale(dpr, dpr);
+        
+        // Limpiar canvas
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, rect.width, 150);
+        
+        // Configurar estilo de dibujo
+        ctx.strokeStyle = '#333333';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 2.5;
+    }
+    
+    // Inicializar
+    setupCanvas();
+    
+    // Función para obtener coordenadas corregidas
+    function getCoordinates(e) {
+        const rect = canvas.getBoundingClientRect();
+        let clientX, clientY;
+        
+        if (e.type.includes('mouse')) {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        } else if (e.type.includes('touch')) {
+            e.preventDefault();
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        }
+        
+        // Calcular coordenadas relativas al canvas
+        const x = (clientX - rect.left) * (canvas.width / (rect.width * window.devicePixelRatio));
+        const y = (clientY - rect.top) * (canvas.height / (150 * window.devicePixelRatio));
+        
+        return [x, y];
+    }
+    
+    // Eventos para desktop
+    function startDrawing(e) {
+        isDrawing = true;
+        [lastX, lastY] = getCoordinates(e);
+        hasSignature = true;
+        
+        // Dibujar punto inicial
+        ctx.beginPath();
+        ctx.arc(lastX, lastY, ctx.lineWidth / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+    }
+    
+    function draw(e) {
+        if (!isDrawing) return;
+        
+        const [x, y] = getCoordinates(e);
+        
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        
+        [lastX, lastY] = [x, y];
+    }
+    
+    function stopDrawing() {
+        if (isDrawing) {
+            ctx.beginPath();
+            isDrawing = false;
+        }
+    }
+    
+    // Event listeners optimizados
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseleave', stopDrawing);
+    
+    // Eventos táctiles optimizados
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (e.touches.length === 1) {
+            startDrawing(e);
+        }
+    }, { passive: false });
+    
+    canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (e.touches.length === 1) {
+            draw(e);
+        }
+    }, { passive: false });
+    
+    canvas.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        stopDrawing();
+    }, { passive: false });
+    
+    canvas.addEventListener('touchcancel', (e) => {
+        e.preventDefault();
+        stopDrawing();
+    }, { passive: false });
+    
+    // Prevenir scroll en móvil mientras se dibuja
+    document.body.addEventListener('touchmove', (e) => {
+        if (isDrawing && e.target === canvas) {
+            e.preventDefault();
+        }
+    }, { passive: false });
+    
+    // Limpiar firma
+    const clearBtn = document.getElementById(clearBtnId);
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
             ctx.fillStyle = 'white';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.strokeStyle = '#333333';
-            ctx.lineWidth = 2;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-        };
-        
-        updateCanvasSize();
-        
-        let isDrawing = false;
-        let lastX = 0;
-        let lastY = 0;
-        let hasSignature = false;
-        
-        function getCoordinates(e) {
-            const rect = canvas.getBoundingClientRect();
-            let x, y;
-            
-            if (e.type.includes('mouse')) {
-                x = e.clientX - rect.left;
-                y = e.clientY - rect.top;
-            } else if (e.type.includes('touch')) {
-                e.preventDefault();
-                x = e.touches[0].clientX - rect.left;
-                y = e.touches[0].clientY - rect.top;
-            }
-            
-            // Ajustar coordenadas para el escalado
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            
-            return [x * scaleX, y * scaleY];
-        }
-        
-        function startDrawing(e) {
-            isDrawing = true;
-            [lastX, lastY] = getCoordinates(e);
-            hasSignature = true;
-            
-            // Dibujar un punto inicial
-            ctx.beginPath();
-            ctx.arc(lastX, lastY, ctx.lineWidth / 2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-        }
-        
-        function draw(e) {
-            if (!isDrawing) return;
-            
-            const [x, y] = getCoordinates(e);
-            
-            ctx.lineTo(x, y);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            
-            [lastX, lastY] = [x, y];
-        }
-        
-        function stopDrawing() {
-            if (isDrawing) {
-                isDrawing = false;
-                ctx.beginPath();
-            }
-        }
-        
-        // Eventos para desktop
-        canvas.addEventListener('mousedown', startDrawing);
-        canvas.addEventListener('mousemove', draw);
-        canvas.addEventListener('mouseup', stopDrawing);
-        canvas.addEventListener('mouseout', stopDrawing);
-        
-        // Eventos para móvil
-        canvas.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 1) {
-                startDrawing(e);
-            }
-        }, { passive: false });
-        
-        canvas.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 1) {
-                draw(e);
-            }
-        }, { passive: false });
-        
-        canvas.addEventListener('touchend', stopDrawing);
-        canvas.addEventListener('touchcancel', stopDrawing);
-        
-        // Limpiar firma
-        const clearBtn = document.getElementById(clearBtnId);
-        if (clearBtn) {
-            clearBtn.addEventListener('click', () => {
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.strokeStyle = '#333333';
-                ctx.lineWidth = 2;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-                hasSignature = false;
-            });
-        }
-        
-        window.addEventListener('resize', updateCanvasSize);
-        
-        // Retornar objeto con estado de la firma
-        return {
-            canvas: canvas,
-            hasSignature: () => hasSignature,
-            clear: () => {
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                hasSignature = false;
-            }
-        };
+            ctx.lineWidth = 2.5;
+            hasSignature = false;
+        });
     }
+    
+    // Redimensionar en resize
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            setupCanvas();
+        }, 100);
+    });
+    
+    return {
+        canvas: canvas,
+        hasSignature: () => hasSignature,
+        clear: () => {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            hasSignature = false;
+        }
+    };
+}
+
+// Agrega esta función para verificar el soporte táctil
+function setupTouchSupport() {
+    // Prevenir zoom con dos dedos en canvas
+    document.querySelectorAll('.signature-canvas').forEach(canvas => {
+        canvas.addEventListener('gesturestart', (e) => {
+            e.preventDefault();
+        });
+        
+        canvas.addEventListener('gesturechange', (e) => {
+            e.preventDefault();
+        });
+        
+        canvas.addEventListener('gestureend', (e) => {
+            e.preventDefault();
+        });
+    });
+}
+
+// Modifica la función initializeAllCanvas:
+function initializeAllCanvas() {
+    const canvasConfigs = [
+        {id: 'signature-canvas-colaborador', clearBtn: 'clear-colaborador'},
+        {id: 'signature-canvas-supervisor', clearBtn: 'clear-supervisor'},
+        {id: 'signature-canvas-sindical', clearBtn: 'clear-sindical'},
+        {id: 'signature-canvas-rh', clearBtn: 'clear-rh'},
+        {id: 'signature-canvas-verbal-colaborador', clearBtn: 'clear-verbal-colaborador'},
+        {id: 'signature-canvas-verbal-supervisor', clearBtn: 'clear-verbal-supervisor'}
+    ];
+    
+    // Esperar a que el DOM esté completamente renderizado
+    setTimeout(() => {
+        canvasConfigs.forEach(config => {
+            canvasInstances[config.id] = initializeCanvas(config.id, config.clearBtn);
+        });
+        
+        // Configurar soporte táctil
+        setupTouchSupport();
+    }, 300);
+}
 
     function initializeAllCanvas() {
         const canvasConfigs = [
@@ -2554,270 +2704,442 @@
         }
     }
 
-    async function generatePDF(feedbackId, tipo) {
-        try {
-            let feedback;
-            
-            if (tipo === 'Escrita') {
-                const { data } = await supabaseClient
-                    .from('retroalimentaciones_escritas')
-                    .select('*')
-                    .eq('id', feedbackId)
-                    .single();
-                feedback = data;
-            } else {
-                const { data } = await supabaseClient
-                    .from('retroalimentaciones_verbales')
-                    .select('*')
-                    .eq('id', feedbackId)
-                    .single();
-                feedback = data;
-            }
-            
-            if (!feedback) {
-                alert('No se encontró la retroalimentación');
-                return;
-            }
-            
-            function extraerNombreLider(liderNombreCompleto) {
-                if (!liderNombreCompleto) return 'N/A';
-                const partes = liderNombreCompleto.split(' - ');
-                return partes[0];
-            }
-            
-            const nombreLider = extraerNombreLider(feedback.lider_nombre);
-            
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            
-            const primaryColor = [207, 0, 46];
-            const pageWidth = doc.internal.pageSize.width;
-            const pageHeight = doc.internal.pageSize.height;
-            const margin = 20;
-            let yPos = margin;
-            
-            // ============ ENCABEZADO ============
-            doc.setFontSize(20);
-            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.text('FORMULARIO DE RETROALIMENTACIÓN', pageWidth / 2, yPos, null, null, 'center');
-            yPos += 15;
-            
-            doc.setFontSize(12);
-            doc.setTextColor(0, 0, 0);
-            doc.text(`Folio: ${feedback.folio}`, margin, yPos);
-            doc.text(`Fecha: ${feedback.fecha}`, pageWidth - margin - 40, yPos);
-            yPos += 8;
-            
-            doc.text(`Tipo: ${tipo}`, margin, yPos);
-            if (tipo === 'Escrita') {
-                doc.text(`Subtipo: ${feedback.tipo_feedback}`, pageWidth - margin - 40, yPos);
-            } else {
-                doc.text(`Área: ${feedback.area || 'N/A'}`, pageWidth - margin - 40, yPos);
-            }
-            yPos += 15;
-            
-            // ============ INFORMACIÓN GENERAL ============
-            if (tipo === 'Escrita') {
-                doc.setFontSize(14);
-                doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-                doc.text('INFORMACIÓN GENERAL', margin, yPos);
-                yPos += 10;
-                
-                doc.setFontSize(11);
-                doc.setTextColor(0, 0, 0);
-                doc.text(`Área: ${feedback.area || 'N/A'}`, margin, yPos);
-                yPos += 8;
-            }
-            
-            // ============ LÍDER Y COLABORADOR ============
+   async function generatePDF(feedbackId, tipo) {
+    try {
+        let feedback;
+        
+        if (tipo === 'Escrita') {
+            const { data } = await supabaseClient
+                .from('retroalimentaciones_escritas')
+                .select('*')
+                .eq('id', feedbackId)
+                .single();
+            feedback = data;
+        } else {
+            const { data } = await supabaseClient
+                .from('retroalimentaciones_verbales')
+                .select('*')
+                .eq('id', feedbackId)
+                .single();
+            feedback = data;
+        }
+        
+        if (!feedback) {
+            alert('No se encontró la retroalimentación');
+            return;
+        }
+        
+        function extraerNombreLider(liderNombreCompleto) {
+            if (!liderNombreCompleto) return 'N/A';
+            const partes = liderNombreCompleto.split(' - ');
+            return partes[0];
+        }
+        
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', 'letter');
+        
+        // Colores corporativos
+        const primaryColor = [207, 0, 46]; // Rojo
+        const secondaryColor = [253, 208, 0]; // Amarillo
+        const darkGray = [51, 51, 51];
+        const lightGray = [245, 245, 245];
+        
+        const pageWidth = doc.internal.pageSize.width;
+        const pageHeight = doc.internal.pageSize.height;
+        const margin = 20;
+        let yPos = margin;
+        
+        // ============ ENCABEZADO CORPORATIVO ============
+        // Fondo degradado (simulado)
+        doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text('FORMULARIO DE RETROALIMENTACIÓN', pageWidth / 2, 25, null, null, 'center');
+        
+        doc.setFontSize(11);
+        doc.text('Sistema de Gestión de Feedback', pageWidth / 2, 33, null, null, 'center');
+        
+        // Línea decorativa amarilla
+        doc.setDrawColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+        doc.setLineWidth(2);
+        doc.line(margin, 40, pageWidth - margin, 40);
+        
+        yPos = 50;
+        
+        // ============ INFORMACIÓN DEL FORMULARIO ============
+        // Marco decorativo para información principal
+        doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.setLineWidth(0.5);
+        doc.rect(margin - 5, yPos - 5, pageWidth - (margin * 2) + 10, 30);
+        
+        // Fondo gris claro
+        doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
+        doc.rect(margin - 4, yPos - 4, pageWidth - (margin * 2) + 8, 28, 'F');
+        
+        doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        
+        // Folio con badge rojo
+        doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.setTextColor(255, 255, 255);
+        doc.roundedRect(margin, yPos - 2, 60, 10, 3, 3, 'F');
+        doc.text('FOLIO', margin + 5, yPos + 4);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+        doc.text(feedback.folio, margin + 65, yPos + 4);
+        
+        // Fecha con badge rojo
+        doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.setTextColor(255, 255, 255);
+        doc.roundedRect(margin + 120, yPos - 2, 40, 10, 3, 3, 'F');
+        doc.text('FECHA', margin + 125, yPos + 4);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+        doc.text(feedback.fecha, margin + 165, yPos + 4);
+        
+        yPos += 10;
+        
+        // Tipo con badge
+        const tipoColor = tipo === 'Escrita' ? secondaryColor : primaryColor;
+        doc.setFillColor(tipoColor[0], tipoColor[1], tipoColor[2]);
+        doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+        doc.roundedRect(margin, yPos, 50, 10, 3, 3, 'F');
+        doc.text('TIPO', margin + 5, yPos + 6);
+        
+        doc.setFont('helvetica', 'bold');
+        doc.text(tipo.toUpperCase(), margin + 65, yPos + 6);
+        
+        if (tipo === 'Escrita') {
+            doc.setFillColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+            doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+            doc.roundedRect(margin + 120, yPos, 60, 10, 3, 3, 'F');
+            doc.text('SUBTIPO', margin + 125, yPos + 6);
+            doc.setFont('helvetica', 'normal');
+            doc.text(feedback.tipo_feedback, margin + 185, yPos + 6);
+        }
+        
+        yPos += 25;
+        
+        // ============ SECCIÓN: INFORMACIÓN GENERAL ============
+        // Título de sección con línea roja
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.text('INFORMACIÓN GENERAL', margin, yPos);
+        
+        doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.setLineWidth(0.5);
+        doc.line(margin, yPos + 2, margin + 70, yPos + 2);
+        
+        yPos += 10;
+        
+        // Tabla de información
+        const tableTop = yPos;
+        const cellHeight = 8;
+        
+        // Encabezado de tabla
+        doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
+        doc.rect(margin, tableTop, pageWidth - margin * 2, cellHeight, 'F');
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+        doc.text('ÁREA', margin + 5, tableTop + 5);
+        doc.text('LÍDER QUE RETROALIMENTA', margin + 50, tableTop + 5);
+        doc.text('CUADRILLA LÍDER', margin + 130, tableTop + 5);
+        
+        // Contenido de tabla
+        doc.setFont('helvetica', 'normal');
+        doc.text(feedback.area || 'N/A', margin + 5, tableTop + cellHeight + 5);
+        
+        const nombreLider = extraerNombreLider(feedback.lider_nombre);
+        doc.text(nombreLider, margin + 50, tableTop + cellHeight + 5);
+        doc.text(feedback.cuadrilla_lider || 'N/A', margin + 130, tableTop + cellHeight + 5);
+        
+        yPos = tableTop + (cellHeight * 2) + 10;
+        
+        // ============ SECCIÓN: INFORMACIÓN DEL COLABORADOR ============
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.text('INFORMACIÓN DEL COLABORADOR', margin, yPos);
+        doc.line(margin, yPos + 2, margin + 100, yPos + 2);
+        
+        yPos += 10;
+        
+        // Tabla de información del colaborador
+        const tableTop2 = yPos;
+        
+        // Encabezado
+        doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
+        doc.rect(margin, tableTop2, pageWidth - margin * 2, cellHeight, 'F');
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('NOMBRE COMPLETO', margin + 5, tableTop2 + 5);
+        doc.text('N° EMPLEADO', margin + 70, tableTop2 + 5);
+        doc.text('CUADRILLA', margin + 110, tableTop2 + 5);
+        
+        // Contenido
+        doc.setFont('helvetica', 'normal');
+        doc.text(feedback.nombre_colaborador || 'N/A', margin + 5, tableTop2 + cellHeight + 5);
+        doc.text(feedback.num_empleado || 'N/A', margin + 70, tableTop2 + cellHeight + 5);
+        doc.text(feedback.cuadrilla_colaborador || 'N/A', margin + 110, tableTop2 + cellHeight + 5);
+        
+        yPos = tableTop2 + (cellHeight * 2) + 15;
+        
+        // ============ SECCIÓN: DETALLES ============
+        if (tipo === 'Escrita') {
             doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
             doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.text('INFORMACIÓN DEL LÍDER Y COLABORADOR', margin, yPos);
+            doc.text('DETALLES DE LA RETROALIMENTACIÓN', margin, yPos);
+            doc.line(margin, yPos + 2, margin + 130, yPos + 2);
+            
             yPos += 10;
             
+            // Impactos
             doc.setFontSize(11);
-            doc.setTextColor(0, 0, 0);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+            doc.text('IMPACTOS IDENTIFICADOS:', margin, yPos);
             
-            // Columna izquierda
-            doc.text(`Líder: ${nombreLider}`, margin, yPos);
-            doc.text(`Cuadrilla Líder: ${feedback.cuadrilla_lider || 'N/A'}`, margin, yPos + 8);
-            doc.text(`Colaborador: ${feedback.nombre_colaborador || 'N/A'}`, margin, yPos + 16);
+            doc.setFont('helvetica', 'normal');
+            let impactosTexto = feedback.impactos && feedback.impactos.length > 0 
+                ? feedback.impactos.join(', ') 
+                : 'No especificado';
             
-            // Columna derecha
-            doc.text(`N° Empleado: ${feedback.num_empleado || 'N/A'}`, pageWidth / 2, yPos);
-            doc.text(`Cuadrilla Colaborador: ${feedback.cuadrilla_colaborador || 'N/A'}`, pageWidth / 2, yPos + 8);
+            // Marco para impactos
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.3);
+            doc.rect(margin, yPos + 3, pageWidth - margin * 2, 15);
             
-            yPos += 30;
+            const impactosLines = doc.splitTextToSize(impactosTexto, pageWidth - margin * 2 - 10);
+            doc.text(impactosLines, margin + 5, yPos + 10);
+            yPos += 25;
             
-            // ============ DETALLES ============
-            doc.setFontSize(14);
-            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            // Descripción del impacto
+            doc.setFont('helvetica', 'bold');
+            doc.text('DESCRIPCIÓN DEL IMPACTO:', margin, yPos);
             
-            if (tipo === 'Escrita') {
-                doc.text('DETALLES DE LA RETROALIMENTACIÓN', margin, yPos);
-                yPos += 10;
-                
-                doc.setFontSize(11);
-                doc.setTextColor(0, 0, 0);
-                
-                // Impactos
-                let impactosTexto = 'Impactos identificados: ';
-                if (feedback.impactos && feedback.impactos.length > 0) {
-                    impactosTexto += feedback.impactos.join(', ');
-                } else {
-                    impactosTexto += 'N/A';
-                }
-                
-                const impactosLines = doc.splitTextToSize(impactosTexto, pageWidth - 2 * margin);
-                doc.text(impactosLines, margin, yPos);
-                yPos += impactosLines.length * 7 + 5;
-                
-                // Descripción
-                const descripcionTexto = `Descripción: ${feedback.descripcion_impacto || 'N/A'}`;
-                const descripcionLines = doc.splitTextToSize(descripcionTexto, pageWidth - 2 * margin);
-                doc.text(descripcionLines, margin, yPos);
-                yPos += descripcionLines.length * 7 + 5;
-                
-                // Causas
-                if (feedback.causas && feedback.causas.length > 0) {
-                    let causasTexto = 'Causas identificadas: ';
-                    causasTexto += feedback.causas.join(', ');
-                    const causasLines = doc.splitTextToSize(causasTexto, pageWidth - 2 * margin);
-                    doc.text(causasLines, margin, yPos);
-                    yPos += causasLines.length * 7 + 5;
-                }
-                
-                // Explicación
-                if (feedback.explicacion_causa) {
-                    const explicacionTexto = `Explicación: ${feedback.explicacion_causa}`;
-                    const explicacionLines = doc.splitTextToSize(explicacionTexto, pageWidth - 2 * margin);
-                    doc.text(explicacionLines, margin, yPos);
-                    yPos += explicacionLines.length * 7 + 5;
-                }
-                
-                // Acción diferente
-                if (feedback.accion_diferente) {
-                    const accionTexto = `Acción diferente: ${feedback.accion_diferente}`;
-                    const accionLines = doc.splitTextToSize(accionTexto, pageWidth - 2 * margin);
-                    doc.text(accionLines, margin, yPos);
-                    yPos += accionLines.length * 7 + 5;
-                }
-                
-                // Compromiso
-                const compromisoTexto = `Compromiso: ${feedback.compromiso || 'N/A'}`;
-                const compromisoLines = doc.splitTextToSize(compromisoTexto, pageWidth - 2 * margin);
-                doc.text(compromisoLines, margin, yPos);
-                yPos += compromisoLines.length * 7 + 10;
-                
-            } else {
-                doc.text('RAZÓN DE LA RETROALIMENTACIÓN', margin, yPos);
-                yPos += 10;
-                
-                doc.setFontSize(11);
-                doc.setTextColor(0, 0, 0);
-                
-                const razonTexto = feedback.razon || 'N/A';
-                const razonLines = doc.splitTextToSize(razonTexto, pageWidth - 2 * margin);
-                doc.text(razonLines, margin, yPos);
-                yPos += razonLines.length * 7 + 15;
-            }
+            doc.setFont('helvetica', 'normal');
+            doc.setDrawColor(200, 200, 200);
+            doc.rect(margin, yPos + 3, pageWidth - margin * 2, 30);
             
-            // ============ FIRMAS ============
-            if (feedback.firmas && Object.keys(feedback.firmas).length > 0) {
-                if (yPos > pageHeight - 100) {
-                    doc.addPage();
-                    yPos = margin;
-                }
-                
-                doc.setFontSize(14);
-                doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-                doc.text('FIRMAS', margin, yPos);
-                yPos += 10;
-                
-                const firmaWidth = 80;
-                const firmaHeight = 40;
-                const espacioHorizontal = 10;
-                const espacioVertical = 15;
-                const firmasPorFila = 2;
-                
-                let xOffset = margin;
-                let filaActual = 0;
-                
-                Object.entries(feedback.firmas).forEach(([persona, firmaDataURL], index) => {
-                    if (index > 0 && index % firmasPorFila === 0) {
-                        xOffset = margin;
-                        yPos += firmaHeight + espacioVertical + 15;
-                        filaActual++;
-                        
-                        if (yPos + firmaHeight + espacioVertical > pageHeight - margin) {
-                            doc.addPage();
-                            yPos = margin + 10;
-                            filaActual = 0;
-                        }
-                    }
-                    
-                    // Nombre de la firma
-                    doc.setFontSize(10);
-                    doc.setTextColor(0, 0, 0);
-                    const nombreFirma = persona === 'colaborador' ? 'Colaborador' :
-                                       persona === 'supervisor' ? 'Supervisor' :
-                                       persona === 'sindical' ? 'Líder Sindical' :
-                                       persona === 'rh' ? 'Recursos Humanos' :
-                                       persona.charAt(0).toUpperCase() + persona.slice(1);
-                    doc.text(nombreFirma, xOffset + 5, yPos);
-                    
-                    // Cuadro para la firma
-                    doc.setDrawColor(200, 200, 200);
-                    doc.rect(xOffset, yPos + 3, firmaWidth, firmaHeight);
-                    
-                    // Insertar imagen de la firma si existe
-                    try {
-                        if (firmaDataURL && firmaDataURL.startsWith('data:image')) {
-                            doc.addImage(
-                                firmaDataURL, 
-                                'PNG', 
-                                xOffset + 2, 
-                                yPos + 5, 
-                                firmaWidth - 4, 
-                                firmaHeight - 4
-                            );
-                        }
-                    } catch (e) {
-                        console.log('No se pudo agregar firma:', e);
-                    }
-                    
-                    xOffset += firmaWidth + espacioHorizontal;
-                });
-            }
+            const descripcionLines = doc.splitTextToSize(feedback.descripcion_impacto || 'No especificado', pageWidth - margin * 2 - 10);
+            doc.text(descripcionLines, margin + 5, yPos + 10);
+            yPos += 40;
             
-            // ============ PIE DE PÁGINA ============
-            const totalPages = doc.internal.getNumberOfPages();
-            for (let i = 1; i <= totalPages; i++) {
-                doc.setPage(i);
-                doc.setFontSize(8);
-                doc.setTextColor(150, 150, 150);
-                doc.text(
-                    `Página ${i} de ${totalPages} - Generado: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
-                    pageWidth / 2,
-                    pageHeight - 10,
-                    null,
-                    null,
-                    'center'
-                );
+            // Causas (si existen)
+            if (feedback.causas && feedback.causas.length > 0) {
+                doc.setFont('helvetica', 'bold');
+                doc.text('CAUSAS IDENTIFICADAS:', margin, yPos);
                 
-                // Línea separadora
+                doc.setFont('helvetica', 'normal');
                 doc.setDrawColor(200, 200, 200);
-                doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
+                doc.rect(margin, yPos + 3, pageWidth - margin * 2, 20);
+                
+                const causasTexto = feedback.causas.join(', ');
+                const causasLines = doc.splitTextToSize(causasTexto, pageWidth - margin * 2 - 10);
+                doc.text(causasLines, margin + 5, yPos + 10);
+                yPos += 30;
             }
             
-            // Guardar PDF
-            doc.save(`Retroalimentacion_${feedback.folio}.pdf`);
+            // Compromiso
+            doc.setFont('helvetica', 'bold');
+            doc.text('COMPROMISO DEL COLABORADOR:', margin, yPos);
             
-        } catch (error) {
-            console.error('Error generando PDF:', error);
-            alert('Error al generar PDF: ' + error.message);
+            doc.setFont('helvetica', 'normal');
+            doc.setDrawColor(200, 200, 200);
+            doc.rect(margin, yPos + 3, pageWidth - margin * 2, 40);
+            
+            const compromisoLines = doc.splitTextToSize(feedback.compromiso || 'No especificado', pageWidth - margin * 2 - 10);
+            doc.text(compromisoLines, margin + 5, yPos + 10);
+            yPos += 50;
+            
+        } else {
+            // Para retroalimentación verbal
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.text('RAZÓN DE LA RETROALIMENTACIÓN VERBAL', margin, yPos);
+            doc.line(margin, yPos + 2, margin + 150, yPos + 2);
+            
+            yPos += 10;
+            
+            // Marco para la razón
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.3);
+            doc.rect(margin, yPos + 3, pageWidth - margin * 2, 50);
+            
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+            
+            const razonLines = doc.splitTextToSize(feedback.razon || 'No especificado', pageWidth - margin * 2 - 10);
+            doc.text(razonLines, margin + 5, yPos + 10);
+            yPos += 60;
         }
+        
+        // ============ SECCIÓN: FIRMAS ============
+        if (feedback.firmas && Object.keys(feedback.firmas).length > 0) {
+            if (yPos > pageHeight - 80) {
+                doc.addPage();
+                yPos = margin;
+            }
+            
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.text('FIRMAS Y AUTORIZACIONES', margin, yPos);
+            doc.line(margin, yPos + 2, margin + 100, yPos + 2);
+            
+            yPos += 15;
+            
+            // Configuración de firmas
+            const firmaWidth = 80;
+            const firmaHeight = 40;
+            const espacioHorizontal = 15;
+            const espacioVertical = 20;
+            const firmasPorFila = 2;
+            
+            const firmasOrdenadas = [
+                { key: 'colaborador', label: 'COLABORADOR' },
+                { key: 'supervisor', label: 'SUPERVISOR/COORDINADOR' },
+                { key: 'sindical', label: 'LÍDER SINDICAL' },
+                { key: 'rh', label: 'RECURSOS HUMANOS' }
+            ].filter(item => feedback.firmas[item.key]);
+            
+            let xOffset = margin;
+            let filaActual = 0;
+            
+            firmasOrdenadas.forEach((item, index) => {
+                if (index > 0 && index % firmasPorFila === 0) {
+                    xOffset = margin;
+                    yPos += firmaHeight + espacioVertical + 15;
+                    filaActual++;
+                    
+                    if (yPos + firmaHeight + espacioVertical > pageHeight - margin) {
+                        doc.addPage();
+                        yPos = margin + 10;
+                        filaActual = 0;
+                    }
+                }
+                
+                // Marco de firma con estilo profesional
+                doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+                doc.setLineWidth(0.5);
+                doc.rect(xOffset, yPos, firmaWidth, firmaHeight);
+                
+                // Línea para firma
+                doc.setDrawColor(150, 150, 150);
+                doc.setLineWidth(0.3);
+                doc.line(xOffset + 5, yPos + firmaHeight - 10, xOffset + firmaWidth - 5, yPos + firmaHeight - 10);
+                
+                // Nombre de la firma
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+                doc.text(item.label, xOffset + firmaWidth / 2, yPos - 3, null, null, 'center');
+                
+                // Insertar imagen de la firma si existe
+                try {
+                    const firmaDataURL = feedback.firmas[item.key];
+                    if (firmaDataURL && firmaDataURL.startsWith('data:image')) {
+                        doc.addImage(
+                            firmaDataURL, 
+                            'PNG', 
+                            xOffset + 5, 
+                            yPos + 5, 
+                            firmaWidth - 10, 
+                            firmaHeight - 20
+                        );
+                    } else {
+                        // Texto alternativo
+                        doc.setFontSize(8);
+                        doc.setFont('helvetica', 'italic');
+                        doc.setTextColor(150, 150, 150);
+                        doc.text('Firma no disponible', 
+                               xOffset + firmaWidth / 2, 
+                               yPos + firmaHeight / 2, 
+                               null, null, 'center');
+                    }
+                } catch (e) {
+                    console.log('Error al agregar firma:', e);
+                }
+                
+                // Fecha y lugar
+                doc.setFontSize(7);
+                doc.setTextColor(100, 100, 100);
+                doc.text('Fecha: __________', xOffset + 5, yPos + firmaHeight + 5);
+                
+                xOffset += firmaWidth + espacioHorizontal;
+            });
+            
+            yPos += firmaHeight + 30;
+        }
+        
+        // ============ PIE DE PÁGINA PROFESIONAL ============
+        const totalPages = doc.internal.getNumberOfPages();
+        
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            
+            // Línea superior del pie
+            doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.setLineWidth(0.5);
+            doc.line(margin, pageHeight - 20, pageWidth - margin, pageHeight - 20);
+            
+            // Información del pie
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(100, 100, 100);
+            
+            // Texto izquierdo
+            doc.text('Documento generado automáticamente', margin, pageHeight - 15);
+            
+            // Texto central
+            doc.text(`Página ${i} de ${totalPages}`, pageWidth / 2, pageHeight - 15, null, null, 'center');
+            
+            // Texto derecho
+            const fechaGeneracion = new Date().toLocaleDateString('es-MX', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            doc.text(fechaGeneracion, pageWidth - margin, pageHeight - 15, null, null, 'right');
+            
+            // Marca de agua sutil (solo en páginas internas)
+            if (i > 1) {
+                doc.setFontSize(40);
+                doc.setTextColor(230, 230, 230);
+                doc.setFont('helvetica', 'bold');
+                doc.text('CONFIDENCIAL', pageWidth / 2, pageHeight / 2, null, null, 'center');
+                doc.rotate(45, pageWidth / 2, pageHeight / 2);
+                doc.text('CONFIDENCIAL', pageWidth / 2, pageHeight / 2, null, null, 'center');
+                doc.rotate(-45, pageWidth / 2, pageHeight / 2);
+            }
+        }
+        
+        // ============ GUARDAR PDF ============
+        const fileName = `${tipo}_${feedback.folio}_${feedback.fecha.replace(/-/g, '')}.pdf`;
+        doc.save(fileName);
+        
+        alert(`✅ PDF generado exitosamente: ${fileName}`);
+        
+    } catch (error) {
+        console.error('Error generando PDF:', error);
+        alert('❌ Error al generar PDF: ' + error.message);
     }
+}
 
     async function exportGeneralPDF() {
         try {
@@ -2996,6 +3318,45 @@
         // Configurar evento de login
         document.getElementById('btn-login').addEventListener('click', handleLogin);
     });
+
+    function preventScrollOnSignature() {
+    const canvases = document.querySelectorAll('.signature-canvas');
+    
+    canvases.forEach(canvas => {
+        // Prevenir scroll en canvas
+        canvas.addEventListener('touchmove', (e) => {
+            if (e.target === canvas) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
+        // Prevenir zoom
+        canvas.addEventListener('gesturestart', (e) => {
+            e.preventDefault();
+        });
+        
+        canvas.addEventListener('gesturechange', (e) => {
+            e.preventDefault();
+        });
+        
+        canvas.addEventListener('gestureend', (e) => {
+            e.preventDefault();
+        });
+    });
+    
+    // Mensaje para usuario móvil
+    if ('ontouchstart' in window) {
+        const warning = document.createElement('div');
+        warning.className = 'mobile-signature-warning';
+        warning.innerHTML = '<i class="fas fa-info-circle"></i> Para una mejor experiencia, mantén el dedo presionado mientras firmas y evita hacer scroll.';
+        
+        document.querySelectorAll('.signature-container').forEach(container => {
+            if (!container.querySelector('.mobile-signature-warning')) {
+                container.insertBefore(warning.cloneNode(true), container.firstChild);
+            }
+        });
+    }
+}
     </script>
 </body>
 </html>
