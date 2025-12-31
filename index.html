@@ -982,8 +982,8 @@
                                 <input type="date" id="fecha-verbal" readonly>
                             </div>
                              <div class="form-group">
-        <label for="area-verbal" class="required">Área</label>
-        <select id="area-verbal" required>
+                     <label for="area-verbal" class="required">Área</label>
+          <select id="area-verbal" required>
             <option value="">Seleccionar área</option>
             <option value="Operaciones">Operaciones</option>
             <option value="PFCT">PFCT</option>
@@ -1231,7 +1231,7 @@
 
     <!-- Modal para exportar PDF individual -->
     <div id="pdf-modal" class="modal">
-        <div class="modal-content">
+         <div class="modal-content">
             <div class="modal-header">
                 <h2><i class="fas fa-file-pdf"></i> Exportar Retroalimentación</h2>
                 <button class="close-modal" id="close-pdf-modal">&times;</button>
@@ -1262,6 +1262,7 @@
                 </button>
             </div>
         </div>
+         
     </div>
 
     <script>
@@ -1286,29 +1287,345 @@
     
     const lideres = [
         {id: "1042", nombre: "RODRIGUEZ ALAMILLA JUAN FELIX", rol: "SUPERVISOR", area: "C"},
-            {id: "1064", nombre: "CASTILLO RODRIGUEZ SERGIO", rol: "SUPERVISOR SENIOR", area: "C"},
-            {id: "1813", nombre: "VILLAGOMEZ RAMIREZ MARIO", rol: "SUPERVISOR", area: "D"},
-            {id: "3846", nombre: "BRIOSO PEREZ JESUS GUADALUPE", rol: "SUPERVISOR", area: "A"},
-            {id: "4497", nombre: "CORTEZ ACUÑA IGNACIO", rol: "SUPERVISOR SENIOR", area: "B"},
-            {id: "73313", nombre: "HERNANDEZ GARDUÑO CARLOS ADRIAN", rol: "GERENTE", area: "GERENCIA"}
-    
+        {id: "1064", nombre: "CASTILLO RODRIGUEZ SERGIO", rol: "SUPERVISOR SENIOR", area: "C"},
+        {id: "1813", nombre: "VILLAGOMEZ RAMIREZ MARIO", rol: "SUPERVISOR", area: "D"},
+        {id: "3846", nombre: "BRIOSO PEREZ JESUS GUADALUPE", rol: "SUPERVISOR", area: "A"},
+        {id: "4497", nombre: "CORTEZ ACUÑA IGNACIO", rol: "SUPERVISOR SENIOR", area: "B"},
+        {id: "73313", nombre: "HERNANDEZ GARDUÑO CARLOS ADRIAN", rol: "GERENTE", area: "GERENCIA"}
     ];
     
+    // Variables globales para instancias de canvas
+    let canvasInstances = {};
+
     // ============================================
-    // INICIALIZACIÓN
+    // FUNCIONES PARA CANVAS Y FIRMAS (MOVIDAS AL INICIO)
     // ============================================
-    
-    document.addEventListener('DOMContentLoaded', function() {
-        initializeSupabase();
+
+    function initializeCanvas(canvasId, clearBtnId) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return null;
+        
+        const ctx = canvas.getContext('2d');
+        
+        // Configuración para mejor soporte móvil
+        canvas.style.touchAction = 'none'; // Previene scroll mientras se dibuja
+        
+        const updateCanvasSize = () => {
+            const parentWidth = canvas.parentElement.clientWidth;
+            canvas.width = parentWidth * (window.devicePixelRatio || 1);
+            canvas.height = 150 * (window.devicePixelRatio || 1);
+            
+            // Escalar el contexto para alta resolución
+            ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+            
+            // Hacer canvas responsivo visualmente
+            canvas.style.width = `${parentWidth}px`;
+            canvas.style.height = '150px';
+            
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+        };
+        
+        updateCanvasSize();
+        
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+        let hasSignature = false;
+        
+        function getCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            let x, y;
+            
+            if (e.type.includes('mouse')) {
+                x = e.clientX - rect.left;
+                y = e.clientY - rect.top;
+            } else if (e.type.includes('touch')) {
+                e.preventDefault();
+                x = e.touches[0].clientX - rect.left;
+                y = e.touches[0].clientY - rect.top;
+            }
+            
+            // Ajustar coordenadas para el escalado
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            return [x * scaleX, y * scaleY];
+        }
+        
+        function startDrawing(e) {
+            isDrawing = true;
+            [lastX, lastY] = getCoordinates(e);
+            hasSignature = true;
+            
+            // Dibujar un punto inicial
+            ctx.beginPath();
+            ctx.arc(lastX, lastY, ctx.lineWidth / 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+        }
+        
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            const [x, y] = getCoordinates(e);
+            
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            
+            [lastX, lastY] = [x, y];
+        }
+        
+        function stopDrawing() {
+            if (isDrawing) {
+                isDrawing = false;
+                ctx.beginPath();
+            }
+        }
+        
+        // Eventos para desktop
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+        
+        // Eventos para móvil
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                startDrawing(e);
+            }
+        }, { passive: false });
+        
+        canvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 1) {
+                draw(e);
+            }
+        }, { passive: false });
+        
+        canvas.addEventListener('touchend', stopDrawing);
+        canvas.addEventListener('touchcancel', stopDrawing);
+        
+        // Limpiar firma
+        const clearBtn = document.getElementById(clearBtnId);
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.strokeStyle = '#333333';
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                hasSignature = false;
+            });
+        }
+        
+        window.addEventListener('resize', updateCanvasSize);
+        
+        // Retornar objeto con estado de la firma
+        return {
+            canvas: canvas,
+            hasSignature: () => hasSignature,
+            clear: () => {
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                hasSignature = false;
+            }
+        };
+    }
+
+    function initializeAllCanvas() {
+        const canvasConfigs = [
+            {id: 'signature-canvas-colaborador', clearBtn: 'clear-colaborador', required: true},
+            {id: 'signature-canvas-supervisor', clearBtn: 'clear-supervisor', required: true},
+            {id: 'signature-canvas-sindical', clearBtn: 'clear-sindical', required: true},
+            {id: 'signature-canvas-rh', clearBtn: 'clear-rh', required: true},
+            {id: 'signature-canvas-verbal-colaborador', clearBtn: 'clear-verbal-colaborador', required: true},
+            {id: 'signature-canvas-verbal-supervisor', clearBtn: 'clear-verbal-supervisor', required: true}
+        ];
+        
+        canvasConfigs.forEach(config => {
+            canvasInstances[config.id] = initializeCanvas(config.id, config.clearBtn);
+        });
+    }
+
+    // ============================================
+    // VALIDACIONES MEJORADAS DE FIRMAS
+    // ============================================
+
+    function validarFirmasCompletas(formType = 'escrita') {
+        const firmasRequeridas = {
+            'escrita': [
+                'signature-canvas-colaborador',
+                'signature-canvas-supervisor',
+                'signature-canvas-sindical',
+                'signature-canvas-rh'
+            ],
+            'verbal': [
+                'signature-canvas-verbal-colaborador',
+                'signature-canvas-verbal-supervisor'
+            ]
+        };
+        
+        const canvasIds = firmasRequeridas[formType] || [];
+        const firmasFaltantes = [];
+        
+        canvasIds.forEach(canvasId => {
+            const instance = canvasInstances[canvasId];
+            if (instance && !instance.hasSignature()) {
+                const nombreFirma = canvasId.includes('colaborador') ? 'Colaborador' :
+                                  canvasId.includes('supervisor') ? 'Supervisor' :
+                                  canvasId.includes('sindical') ? 'Líder Sindical' :
+                                  canvasId.includes('rh') ? 'Recursos Humanos' :
+                                  'Firma';
+                
+                firmasFaltantes.push(nombreFirma);
+                
+                const canvas = document.getElementById(canvasId);
+                if (canvas) {
+                    canvas.style.border = '2px solid #CF002E';
+                    canvas.style.borderRadius = '8px';
+                    
+                    setTimeout(() => {
+                        canvas.style.border = '1px solid var(--medium-gray)';
+                    }, 3000);
+                }
+            }
+        });
+        
+        return {
+            todasCompletas: firmasFaltantes.length === 0,
+            firmasFaltantes: firmasFaltantes
+        };
+    }
+
+    function canvasTieneContenido(canvas) {
+        if (!canvas) return false;
+        
+        const ctx = canvas.getContext('2d');
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const a = data[i + 3];
+            
+            if (a > 10 && (r < 250 || g < 250 || b < 250)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    function capturarFirmas(formType = 'escrita') {
+        const firmas = {};
+        
+        const firmasConfig = {
+            'escrita': [
+                {id: 'signature-canvas-colaborador', key: 'colaborador'},
+                {id: 'signature-canvas-supervisor', key: 'supervisor'},
+                {id: 'signature-canvas-sindical', key: 'sindical'},
+                {id: 'signature-canvas-rh', key: 'rh'}
+            ],
+            'verbal': [
+                {id: 'signature-canvas-verbal-colaborador', key: 'colaborador'},
+                {id: 'signature-canvas-verbal-supervisor', key: 'supervisor'}
+            ]
+        };
+        
+        const config = firmasConfig[formType] || [];
+        
+        config.forEach(({id, key}) => {
+            const canvas = document.getElementById(id);
+            if (canvas && canvasTieneContenido(canvas)) {
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                tempCanvas.width = 400;
+                tempCanvas.height = 150;
+                
+                tempCtx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
+                firmas[key] = tempCanvas.toDataURL('image/png', 0.7);
+            }
+        });
+        
+        return firmas;
+    }
+
+    // ============================================
+    // FUNCIONES AUXILIARES GENERALES
+    // ============================================
+
+    function extraerLetraCuadrilla(cuadrilla) {
+        if (!cuadrilla) return '';
+        
+        if (cuadrilla.length === 1) {
+            return cuadrilla;
+        }
+        
+        const match = cuadrilla.match(/[A-Za-z]$/);
+        return match ? match[0] : cuadrilla;
+    }
+
+    function showTab(tabId) {
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        
+        const activeTab = document.querySelector(`.nav-tab[data-tab="${tabId}"]`);
+        if (activeTab) activeTab.classList.add('active');
+        
+        document.querySelectorAll('.content').forEach(content => {
+            content.classList.add('hidden');
+        });
+        
+        document.getElementById(tabId).classList.remove('hidden');
         
         setTimeout(() => {
             initializeAllCanvas();
-            setupEventListeners();
-            cargarLideres();
-            actualizarFechas();
-        }, 500);
-    });
-    
+        }, 100);
+    }
+
+    function aplicarFiltro() {
+        const fecha = document.getElementById('filter-date').value;
+        if (!fecha) {
+            alert('Por favor seleccione una fecha');
+            return;
+        }
+        actualizarTablaFeedbacks(fecha);
+    }
+
+    function limpiarFiltro() {
+        document.getElementById('filter-date').value = new Date().toISOString().split('T')[0];
+        actualizarTablaFeedbacks();
+    }
+
+    // ============================================
+    // FUNCIONES PARA MODAL PDF INDIVIDUAL
+    // ============================================
+
+    function openPdfModal() {
+        document.getElementById('pdf-modal').style.display = 'block';
+        cargarFeedbacksParaPDF();
+    }
+
+    function closePdfModal() {
+        document.getElementById('pdf-modal').style.display = 'none';
+    }
+
+    // ============================================
+    // INICIALIZACIÓN SUPABASE
+    // ============================================
+
     function initializeSupabase() {
         const script = document.createElement('script');
         script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
@@ -1320,67 +1637,75 @@
         };
         document.head.appendChild(script);
     }
-    
-    // ============================================
-    // FUNCIONES PARA CANVAS
-    // ============================================
-    
 
-    
     // ============================================
-    // AUTENTICACIÓN
+    // FUNCIONES DE INICIALIZACIÓN Y CONFIGURACIÓN
     // ============================================
-    
-    document.getElementById('btn-login').addEventListener('click', function() {
-        const role = document.getElementById('user-role').value;
-        const password = document.getElementById('user-password').value;
-        const errorMsg = document.getElementById('login-error');
-        
-        if (!role || !password) {
-            errorMsg.querySelector('span').textContent = 'Por favor complete todos los campos';
-            errorMsg.classList.remove('hidden');
-            return;
-        }
-        
-        if (USERS[role] && USERS[role].password === password) {
-            currentUser = {
-                username: role,
-                role: role,
-                name: USERS[role].name
-            };
-            
-            document.getElementById('login-screen').classList.add('hidden');
-            showApp();
-            
-            document.getElementById('user-role-display').textContent = USERS[role].name;
-            
-            if (role === 'admin') {
-                document.querySelectorAll('.supervisor-only').forEach(el => el.classList.add('hidden'));
-                document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
-                showTab('admin');
-                actualizarDashboard();
-            } else {
-                document.querySelectorAll('.supervisor-only').forEach(el => el.classList.remove('hidden'));
-                document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
-                showTab('form-escrita');
-                generarFoliosIniciales();
-            }
-        } else {
-            errorMsg.querySelector('span').textContent = 'Credenciales incorrectas. Intente nuevamente.';
-            errorMsg.classList.remove('hidden');
-            document.getElementById('user-password').value = '';
-            document.getElementById('user-password').focus();
-        }
-    });
-    
-    // ============================================
-    // FUNCIONES PRINCIPALES
-    // ============================================
-    
+
     function showApp() {
         document.getElementById('app').classList.remove('hidden');
     }
-    
+
+    function setupAreaOtroValidations() {
+        // Configurar área "Otro" para formulario escrito
+        document.getElementById('area').addEventListener('change', function() {
+            const areaOtroContainer = document.getElementById('area-otro-container');
+            if (this.value === 'Otro') {
+                areaOtroContainer.classList.remove('hidden');
+                document.getElementById('area-otro').required = true;
+            } else {
+                areaOtroContainer.classList.add('hidden');
+                document.getElementById('area-otro').required = false;
+            }
+        });
+        
+        // Configurar área "Otro" para formulario verbal
+        document.getElementById('area-verbal').addEventListener('change', function() {
+            const areaVerbalOtroContainer = document.getElementById('area-verbal-otro-container');
+            if (this.value === 'Otro') {
+                areaVerbalOtroContainer.classList.remove('hidden');
+                document.getElementById('area-verbal-otro').required = true;
+            } else {
+                areaVerbalOtroContainer.classList.add('hidden');
+                document.getElementById('area-verbal-otro').required = false;
+            }
+        });
+    }
+
+    function setupLiderOtroValidations() {
+        // Configurar líder "Otro" para formulario escrito
+        document.getElementById('lider').addEventListener('change', function() {
+            const liderOtroContainer = document.getElementById('lider-otro-container');
+            if (this.value === 'otro') {
+                liderOtroContainer.classList.remove('hidden');
+                document.getElementById('lider-otro-nombre').required = true;
+                document.getElementById('lider-otro-puesto').required = true;
+                document.getElementById('lider-otro-area').required = true;
+            } else {
+                liderOtroContainer.classList.add('hidden');
+                document.getElementById('lider-otro-nombre').required = false;
+                document.getElementById('lider-otro-puesto').required = false;
+                document.getElementById('lider-otro-area').required = false;
+            }
+        });
+        
+        // Configurar líder "Otro" para formulario verbal
+        document.getElementById('lider-verbal').addEventListener('change', function() {
+            const liderVerbalOtroContainer = document.getElementById('lider-verbal-otro-container');
+            if (this.value === 'otro') {
+                liderVerbalOtroContainer.classList.remove('hidden');
+                document.getElementById('lider-verbal-otro-nombre').required = true;
+                document.getElementById('lider-verbal-otro-puesto').required = true;
+                document.getElementById('lider-verbal-otro-area').required = true;
+            } else {
+                liderVerbalOtroContainer.classList.add('hidden');
+                document.getElementById('lider-verbal-otro-nombre').required = false;
+                document.getElementById('lider-verbal-otro-puesto').required = false;
+                document.getElementById('lider-verbal-otro-area').required = false;
+            }
+        });
+    }
+
     function setupEventListeners() {
         document.querySelectorAll('.nav-tab').forEach(tab => {
             tab.addEventListener('click', () => {
@@ -1406,57 +1731,10 @@
                 location.reload();
             }
         });
-          document.getElementById('area-verbal').addEventListener('change', function() {
-        const areaVerbalOtroContainer = document.getElementById('area-verbal-otro-container');
-        if (this.value === 'Otro') {
-            areaVerbalOtroContainer.classList.remove('hidden');
-            document.getElementById('area-verbal-otro').required = true;
-        } else {
-            areaVerbalOtroContainer.classList.add('hidden');
-            document.getElementById('area-verbal-otro').required = false;
-        }
-    });
         
-        document.getElementById('area').addEventListener('change', function() {
-            const areaOtroContainer = document.getElementById('area-otro-container');
-            if (this.value === 'Otro') {
-                areaOtroContainer.classList.remove('hidden');
-                document.getElementById('area-otro').required = true;
-            } else {
-                areaOtroContainer.classList.add('hidden');
-                document.getElementById('area-otro').required = false;
-            }
-        });
-        
-        document.getElementById('lider').addEventListener('change', function() {
-            const liderOtroContainer = document.getElementById('lider-otro-container');
-            if (this.value === 'otro') {
-                liderOtroContainer.classList.remove('hidden');
-                document.getElementById('lider-otro-nombre').required = true;
-                document.getElementById('lider-otro-puesto').required = true;
-                document.getElementById('lider-otro-area').required = true;
-            } else {
-                liderOtroContainer.classList.add('hidden');
-                document.getElementById('lider-otro-nombre').required = false;
-                document.getElementById('lider-otro-puesto').required = false;
-                document.getElementById('lider-otro-area').required = false;
-            }
-        });
-        
-        document.getElementById('lider-verbal').addEventListener('change', function() {
-            const liderVerbalOtroContainer = document.getElementById('lider-verbal-otro-container');
-            if (this.value === 'otro') {
-                liderVerbalOtroContainer.classList.remove('hidden');
-                document.getElementById('lider-verbal-otro-nombre').required = true;
-                document.getElementById('lider-verbal-otro-puesto').required = true;
-                document.getElementById('lider-verbal-otro-area').required = true;
-            } else {
-                liderVerbalOtroContainer.classList.add('hidden');
-                document.getElementById('lider-verbal-otro-nombre').required = false;
-                document.getElementById('lider-verbal-otro-puesto').required = false;
-                document.getElementById('lider-verbal-otro-area').required = false;
-            }
-        });
+        // Configurar validaciones de campos "Otro"
+        setupAreaOtroValidations();
+        setupLiderOtroValidations();
         
         document.getElementById('num-empleado').addEventListener('input', function() {
             const seccionColaborador = document.getElementById('seccion-colaborador');
@@ -1489,7 +1767,7 @@
         document.getElementById('cancel-pdf').addEventListener('click', closePdfModal);
         document.getElementById('generate-individual-pdf').addEventListener('click', generateIndividualPDF);
     }
-    
+
     function cargarLideres() {
         const selectEscrito = document.getElementById('lider');
         const selectVerbal = document.getElementById('lider-verbal');
@@ -1519,7 +1797,7 @@
         otroOption2.textContent = 'Otro (especificar en los campos siguientes)';
         selectVerbal.appendChild(otroOption2);
     }
-    
+
     async function generarFoliosIniciales() {
         try {
             const { data: ultimaEscrita } = await supabaseClient
@@ -1560,7 +1838,7 @@
             document.getElementById('folio-verbal').value = 'VER-2526-000001';
         }
     }
-    
+
     function actualizarFechas() {
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('fecha-escrita').value = today;
@@ -1569,36 +1847,83 @@
         
         generarFoliosIniciales();
     }
-    
+
+    // ============================================
+    // AUTENTICACIÓN
+    // ============================================
+
+    function handleLogin() {
+        const role = document.getElementById('user-role').value;
+        const password = document.getElementById('user-password').value;
+        const errorMsg = document.getElementById('login-error');
+        
+        if (!role || !password) {
+            errorMsg.querySelector('span').textContent = 'Por favor complete todos los campos';
+            errorMsg.classList.remove('hidden');
+            return;
+        }
+        
+        if (USERS[role] && USERS[role].password === password) {
+            currentUser = {
+                username: role,
+                role: role,
+                name: USERS[role].name
+            };
+            
+            document.getElementById('login-screen').classList.add('hidden');
+            showApp();
+            
+            document.getElementById('user-role-display').textContent = USERS[role].name;
+            
+            if (role === 'admin') {
+                document.querySelectorAll('.supervisor-only').forEach(el => el.classList.add('hidden'));
+                document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
+                showTab('admin');
+                actualizarDashboard();
+            } else {
+                document.querySelectorAll('.supervisor-only').forEach(el => el.classList.remove('hidden'));
+                document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
+                showTab('form-escrita');
+                generarFoliosIniciales();
+            }
+        } else {
+            errorMsg.querySelector('span').textContent = 'Credenciales incorrectas. Intente nuevamente.';
+            errorMsg.classList.remove('hidden');
+            document.getElementById('user-password').value = '';
+            document.getElementById('user-password').focus();
+        }
+    }
+
     // ============================================
     // MANEJO DE FORMULARIOS CON SUPABASE
     // ============================================
-    
+
     async function submitFormEscrita(e) {
         e.preventDefault();
-            // Validar firmas antes de proceder
-    const validacionFirmas = validarFirmasCompletas('escrita');
-    if (!validacionFirmas.todasCompletas) {
-        alert(`❌ Faltan las siguientes firmas:\n\n${validacionFirmas.firmasFaltantes.join('\n')}\n\nPor favor complete todas las firmas requeridas.`);
         
-        const primerCanvasId = validacionFirmas.firmasFaltantes[0];
-        const canvasMap = {
-            'Colaborador': 'signature-canvas-colaborador',
-            'Supervisor': 'signature-canvas-supervisor',
-            'Líder Sindical': 'signature-canvas-sindical',
-            'Recursos Humanos': 'signature-canvas-rh'
-        };
-        
-        const canvasId = canvasMap[primerCanvasId];
-        if (canvasId) {
-            const canvas = document.getElementById(canvasId);
-            if (canvas) {
-                canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Validar firmas antes de proceder
+        const validacionFirmas = validarFirmasCompletas('escrita');
+        if (!validacionFirmas.todasCompletas) {
+            alert(`❌ Faltan las siguientes firmas:\n\n${validacionFirmas.firmasFaltantes.join('\n')}\n\nPor favor complete todas las firmas requeridas.`);
+            
+            const primerCanvasId = validacionFirmas.firmasFaltantes[0];
+            const canvasMap = {
+                'Colaborador': 'signature-canvas-colaborador',
+                'Supervisor': 'signature-canvas-supervisor',
+                'Líder Sindical': 'signature-canvas-sindical',
+                'Recursos Humanos': 'signature-canvas-rh'
+            };
+            
+            const canvasId = canvasMap[primerCanvasId];
+            if (canvasId) {
+                const canvas = document.getElementById(canvasId);
+                if (canvas) {
+                    canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
             }
+            
+            return;
         }
-        
-        return;
-    }
         
         const areaSelect = document.getElementById('area').value;
         let area = areaSelect;
@@ -1715,19 +2040,21 @@
             alert('Error al guardar: ' + error.message);
         }
     }
-    
+
     async function submitFormVerbal(e) {
         e.preventDefault();
+        
         const areaVerbalSelect = document.getElementById('area-verbal').value;
-    let areaVerbal = areaVerbalSelect;
-    
-    if (areaVerbalSelect === 'Otro') {
-        areaVerbal = document.getElementById('area-verbal-otro').value;
-        if (!areaVerbal) {
-            alert('Por favor especifique el área cuando selecciona "Otro"');
-            return;
+        let areaVerbal = areaVerbalSelect;
+        
+        if (areaVerbalSelect === 'Otro') {
+            areaVerbal = document.getElementById('area-verbal-otro').value;
+            if (!areaVerbal) {
+                alert('Por favor especifique el área cuando selecciona "Otro"');
+                return;
+            }
         }
-    }
+        
         const liderSelect = document.getElementById('lider-verbal').value;
         let liderNombre = '';
         let liderInfo = {};
@@ -1763,7 +2090,7 @@
         const numEmpleado = document.getElementById('num-empleado-verbal').value;
         const razon = document.getElementById('razon-verbal').value;
         
-        if (!liderSelect || !cuadrillaLider || !nombreColaborador || !cuadrillaColaborador || !numEmpleado || !razon) {
+        if (!liderSelect || !cuadrillaLider || !nombreColaborador || !cuadrillaColaborador || !numEmpleado || !razon || !areaVerbal) {
             alert('Por favor complete todos los campos requeridos (*)');
             return;
         }
@@ -1779,6 +2106,7 @@
         const feedbackData = {
             folio: document.getElementById('folio-verbal').value,
             fecha: document.getElementById('fecha-verbal').value,
+            area: areaVerbal,
             lider_id: liderSelect,
             lider_nombre: liderNombre,
             lider_info: liderInfo,
@@ -1808,11 +2136,56 @@
             alert('Error al guardar: ' + error.message);
         }
     }
-    
+
+    // ============================================
+    // FUNCIONES DE RESET DE FORMULARIOS
+    // ============================================
+
+    function resetFormEscrita() {
+        document.getElementById('formEscrita').reset();
+        document.getElementById('seccion-colaborador').classList.add('hidden');
+        document.getElementById('area-otro-container').classList.add('hidden');
+        document.getElementById('area-otro').required = false;
+        document.getElementById('lider-otro-container').classList.add('hidden');
+        
+        const canvases = ['signature-canvas-colaborador', 'signature-canvas-supervisor', 
+                         'signature-canvas-sindical', 'signature-canvas-rh'];
+        canvases.forEach(canvasId => {
+            const canvas = document.getElementById(canvasId);
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+        });
+        
+        generarFoliosIniciales();
+    }
+
+    function resetFormVerbal() {
+        document.getElementById('formVerbal').reset();
+        document.getElementById('image-preview').style.display = 'none';
+        document.getElementById('lider-verbal-otro-container').classList.add('hidden');
+        document.getElementById('area-verbal-otro-container').classList.add('hidden');
+        document.getElementById('area-verbal-otro').required = false;
+        
+        const canvases = ['signature-canvas-verbal-colaborador', 'signature-canvas-verbal-supervisor'];
+        canvases.forEach(canvasId => {
+            const canvas = document.getElementById(canvasId);
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+        });
+        
+        generarFoliosIniciales();
+    }
+
     // ============================================
     // PANEL DE ADMINISTRADOR
     // ============================================
-    
+
     async function actualizarDashboard() {
         try {
             const { data: escritas } = await supabaseClient
@@ -1843,7 +2216,7 @@
             alert('Error cargando datos: ' + error.message);
         }
     }
-    
+
     async function actualizarTablaFeedbacks(filtroFecha = null) {
         try {
             let queryEscritas = supabaseClient
@@ -1878,15 +2251,15 @@
                 });
             }
             
-           if (verbales) {
-    verbales.forEach(item => {
-        allFeedbacks.push({
-            ...item,
-            tipo: 'Verbal',
-            area_display: item.area || 'N/A' // ===== NUEVO =====
-        });
-    });
-}
+            if (verbales) {
+                verbales.forEach(item => {
+                    allFeedbacks.push({
+                        ...item,
+                        tipo: 'Verbal',
+                        area_display: item.area || 'N/A'
+                    });
+                });
+            }
             
             if (allFeedbacks.length === 0) {
                 noDataMsg.style.display = 'block';
@@ -1927,8 +2300,8 @@
                 row.appendChild(tdNombre);
 
                 const tdArea = document.createElement('td');
-tdArea.textContent = feedback.area_display || 'N/A';
-row.appendChild(tdArea);
+                tdArea.textContent = feedback.area_display || 'N/A';
+                row.appendChild(tdArea);
                 
                 const tdSupervisor = document.createElement('td');
                 tdSupervisor.textContent = feedback.lider_nombre ? 
@@ -1971,7 +2344,7 @@ row.appendChild(tdArea);
             alert('Error cargando la tabla: ' + error.message);
         }
     }
-    
+
     function verFeedback(feedback) {
         let detalles = `=== DETALLES DE RETROALIMENTACIÓN ===\n\n`;
         detalles += `Folio: ${feedback.folio}\n`;
@@ -2002,6 +2375,7 @@ row.appendChild(tdArea);
             detalles += `Cuadrilla Líder: ${feedback.cuadrilla_lider || 'N/A'}\n`;
             detalles += `N° Empleado: ${feedback.num_empleado}\n`;
             detalles += `Cuadrilla Colaborador: ${feedback.cuadrilla_colaborador}\n`;
+            detalles += `Área: ${feedback.area || 'N/A'}\n`;
             detalles += `\nRazón:\n${feedback.razon}\n`;
         }
         
@@ -2009,102 +2383,50 @@ row.appendChild(tdArea);
         
         alert(detalles);
     }
-    
+
     // ============================================
     // FUNCIONES DE EXPORTACIÓN
     // ============================================
-    
-   async function exportExcel() {
-    try {
-        const { data: escritas } = await supabaseClient
-            .from('retroalimentaciones_escritas')
-            .select('*')
-            .order('fecha', { ascending: false });
-        
-        const { data: verbales } = await supabaseClient
-            .from('retroalimentaciones_verbales')
-            .select('*')
-            .order('fecha', { ascending: false });
-        
-        if ((!escritas || escritas.length === 0) && (!verbales || verbales.length === 0)) {
-            alert('No hay datos para exportar');
-            return;
-        }
-        
-        const datosProcesados = [];
-        const conteoEmpleados = {};
-        
-        // Función para extraer solo la letra de la cuadrilla
-        function extraerLetraCuadrilla(cuadrilla) {
-            if (!cuadrilla) return '';
+
+    async function exportExcel() {
+        try {
+            const { data: escritas } = await supabaseClient
+                .from('retroalimentaciones_escritas')
+                .select('*')
+                .order('fecha', { ascending: false });
             
-            // Si ya es una sola letra
-            if (cuadrilla.length === 1) {
-                return cuadrilla;
+            const { data: verbales } = await supabaseClient
+                .from('retroalimentaciones_verbales')
+                .select('*')
+                .order('fecha', { ascending: false });
+            
+            if ((!escritas || escritas.length === 0) && (!verbales || verbales.length === 0)) {
+                alert('No hay datos para exportar');
+                return;
             }
             
-            // Extraer la última letra (A, B, C, D, etc.)
-            const match = cuadrilla.match(/([A-Za-z])$/);
-            return match ? match[1] : cuadrilla;
-        }
-        
-        if (escritas) {
-            escritas.forEach(item => {
-                const numEmpleado = item.num_empleado;
-                if (!conteoEmpleados[numEmpleado]) {
-                    conteoEmpleados[numEmpleado] = {
-                        motivacion: 0,
-                        desarrollo: 0,
-                        verbal: 0,
-                        total: 0
-                    };
-                }
-                
-                if (item.tipo_feedback === 'Motivación') {
-                    conteoEmpleados[numEmpleado].motivacion++;
-                } else if (item.tipo_feedback === 'Desarrollo') {
-                    conteoEmpleados[numEmpleado].desarrollo++;
-                }
-                conteoEmpleados[numEmpleado].total++;
-                
-                datosProcesados.push({
-                    'N.Empleado': item.num_empleado,
-                    'Nombre': item.nombre_colaborador || 'N/A',
-                    '#Retros': conteoEmpleados[numEmpleado].total,
-                    'Líder que retroalimenta': item.lider_nombre?.split(' - ')[0] || 'N/A',
-                    'Cuadrilla colaborador': extraerLetraCuadrilla(item.cuadrilla_colaborador) || 'N/A',
-                    'Cuadrilla líder': extraerLetraCuadrilla(item.cuadrilla_lider) || 'N/A',
-                    'Motivación': conteoEmpleados[numEmpleado].motivacion,
-                    'Desarrollo': conteoEmpleados[numEmpleado].desarrollo,
-                    'Verbal': 0,
-                    'Tipo': 'Escrita',
-                    'Folio': item.folio,
-                    'Fecha': item.fecha,
-                    'Área': item.area || 'N/A'
-                });
-            });
-        }
-        
-        if (verbales) {
-            verbales.forEach(item => {
-                const numEmpleado = item.num_empleado;
-                if (!conteoEmpleados[numEmpleado]) {
-                    conteoEmpleados[numEmpleado] = {
-                        motivacion: 0,
-                        desarrollo: 0,
-                        verbal: 0,
-                        total: 0
-                    };
-                }
-                
-                conteoEmpleados[numEmpleado].verbal++;
-                conteoEmpleados[numEmpleado].total++;
-                
-                const registroExistente = datosProcesados.find(d => d['N.Empleado'] === numEmpleado);
-                if (registroExistente) {
-                    registroExistente['#Retros'] = conteoEmpleados[numEmpleado].total;
-                    registroExistente['Verbal'] = conteoEmpleados[numEmpleado].verbal;
-                } else {
+            const datosProcesados = [];
+            const conteoEmpleados = {};
+            
+            if (escritas) {
+                escritas.forEach(item => {
+                    const numEmpleado = item.num_empleado;
+                    if (!conteoEmpleados[numEmpleado]) {
+                        conteoEmpleados[numEmpleado] = {
+                            motivacion: 0,
+                            desarrollo: 0,
+                            verbal: 0,
+                            total: 0
+                        };
+                    }
+                    
+                    if (item.tipo_feedback === 'Motivación') {
+                        conteoEmpleados[numEmpleado].motivacion++;
+                    } else if (item.tipo_feedback === 'Desarrollo') {
+                        conteoEmpleados[numEmpleado].desarrollo++;
+                    }
+                    conteoEmpleados[numEmpleado].total++;
+                    
                     datosProcesados.push({
                         'N.Empleado': item.num_empleado,
                         'Nombre': item.nombre_colaborador || 'N/A',
@@ -2112,358 +2434,391 @@ row.appendChild(tdArea);
                         'Líder que retroalimenta': item.lider_nombre?.split(' - ')[0] || 'N/A',
                         'Cuadrilla colaborador': extraerLetraCuadrilla(item.cuadrilla_colaborador) || 'N/A',
                         'Cuadrilla líder': extraerLetraCuadrilla(item.cuadrilla_lider) || 'N/A',
-                        'Motivación': 0,
-                        'Desarrollo': 0,
-                        'Verbal': conteoEmpleados[numEmpleado].verbal,
-                        'Tipo': 'Verbal',
+                        'Motivación': conteoEmpleados[numEmpleado].motivacion,
+                        'Desarrollo': conteoEmpleados[numEmpleado].desarrollo,
+                        'Verbal': 0,
+                        'Tipo': 'Escrita',
                         'Folio': item.folio,
                         'Fecha': item.fecha,
                         'Área': item.area || 'N/A'
                     });
-                }
-            });
-        }
-        
-        const datosConsolidados = [];
-        const empleadosUnicos = [...new Set(datosProcesados.map(d => d['N.Empleado']))];
-        
-        empleadosUnicos.forEach(numEmpleado => {
-            const registrosEmpleado = datosProcesados.filter(d => d['N.Empleado'] === numEmpleado);
-            const ultimoRegistro = registrosEmpleado[0];
-            
-            datosConsolidados.push({
-                'N.Empleado': numEmpleado,
-                'Nombre': ultimoRegistro.Nombre,
-                '#Retros': conteoEmpleados[numEmpleado].total,
-                'Líder que retroalimenta': ultimoRegistro['Líder que retroalimenta'],
-                'Cuadrilla colaborador': ultimoRegistro['Cuadrilla colaborador'],
-                'Cuadrilla líder': ultimoRegistro['Cuadrilla líder'],
-                'Motivación': conteoEmpleados[numEmpleado].motivacion,
-                'Desarrollo': conteoEmpleados[numEmpleado].desarrollo,
-                'Verbal': conteoEmpleados[numEmpleado].verbal
-            });
-        });
-        
-        const wb = XLSX.utils.book_new();
-        
-        const ws1 = XLSX.utils.json_to_sheet(datosConsolidados);
-        XLSX.utils.book_append_sheet(wb, ws1, "Resumen por Empleado");
-        
-        if (escritas && escritas.length > 0) {
-            const escritasSimplificadas = escritas.map(item => ({
-                'Folio': item.folio,
-                'Fecha': item.fecha,
-                'N.Empleado': item.num_empleado,
-                'Nombre': item.nombre_colaborador || 'N/A',
-                'Tipo Feedback': item.tipo_feedback,
-                'Líder': item.lider_nombre,
-                'Cuadrilla Líder': extraerLetraCuadrilla(item.cuadrilla_lider) || 'N/A',
-                'Cuadrilla Colaborador': extraerLetraCuadrilla(item.cuadrilla_colaborador) || 'N/A',
-                'Área': item.area,
-                'Impactos': item.impactos?.join(', '),
-                'Descripción': item.descripcion_impacto
-            }));
-            const ws2 = XLSX.utils.json_to_sheet(escritasSimplificadas);
-            XLSX.utils.book_append_sheet(wb, ws2, "Retroalimentaciones Escritas");
-        }
-        
-        if (verbales && verbales.length > 0) {
-            const verbalesSimplificadas = verbales.map(item => ({
-                'Folio': item.folio,
-                'Fecha': item.fecha,
-                'N.Empleado': item.num_empleado,
-                'Nombre': item.nombre_colaborador || 'N/A',
-                'Líder': item.lider_nombre,
-                'Cuadrilla Líder': extraerLetraCuadrilla(item.cuadrilla_lider) || 'N/A',
-                'Cuadrilla Colaborador': extraerLetraCuadrilla(item.cuadrilla_colaborador) || 'N/A',
-                'Área': item.area || 'N/A',
-                'Razón': item.razon
-            }));
-            const ws3 = XLSX.utils.json_to_sheet(verbalesSimplificadas);
-            XLSX.utils.book_append_sheet(wb, ws3, "Retroalimentaciones Verbales");
-        }
-        
-        const fecha = new Date().toISOString().split('T')[0];
-        XLSX.writeFile(wb, `Reporte_Retroalimentaciones_${fecha}.xlsx`);
-        
-        alert('✅ Archivo Excel generado exitosamente');
-        
-    } catch (error) {
-        console.error('Error exportando Excel:', error);
-        alert('Error al exportar: ' + error.message);
-    }
-}
-    
-   async function generatePDF(feedbackId, tipo) {
-    try {
-        let feedback;
-        
-        if (tipo === 'Escrita') {
-            const { data } = await supabaseClient
-                .from('retroalimentaciones_escritas')
-                .select('*')
-                .eq('id', feedbackId)
-                .single();
-            feedback = data;
-        } else {
-            const { data } = await supabaseClient
-                .from('retroalimentaciones_verbales')
-                .select('*')
-                .eq('id', feedbackId)
-                .single();
-            feedback = data;
-        }
-        
-        if (!feedback) {
-            alert('No se encontró la retroalimentación');
-            return;
-        }
-        
-        // Función para extraer solo el nombre del líder
-        function extraerNombreLider(liderNombreCompleto) {
-            if (!liderNombreCompleto) return 'N/A';
-            const partes = liderNombreCompleto.split(' - ');
-            return partes[0];
-        }
-        
-        const nombreLider = extraerNombreLider(feedback.lider_nombre);
-        
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        
-        const primaryColor = [207, 0, 46];
-        const pageWidth = doc.internal.pageSize.width;
-        const pageHeight = doc.internal.pageSize.height;
-        const margin = 20;
-        let yPos = margin;
-        
-        // ============ ENCABEZADO ============
-        doc.setFontSize(20);
-        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.text('FORMULARIO DE RETROALIMENTACIÓN', pageWidth / 2, yPos, null, null, 'center');
-        yPos += 15;
-        
-        doc.setFontSize(12);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Folio: ${feedback.folio}`, margin, yPos);
-        doc.text(`Fecha: ${feedback.fecha}`, pageWidth - margin - 40, yPos);
-        yPos += 8;
-        
-        doc.text(`Tipo: ${tipo}`, margin, yPos);
-        if (tipo === 'Escrita') {
-            doc.text(`Subtipo: ${feedback.tipo_feedback}`, pageWidth - margin - 40, yPos);
-        } else {
-            doc.text(`Área: ${feedback.area || 'N/A'}`, pageWidth - margin - 40, yPos);
-        }
-        yPos += 15;
-        
-        // ============ INFORMACIÓN GENERAL ============
-        if (tipo === 'Escrita') {
-            doc.setFontSize(14);
-            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.text('INFORMACIÓN GENERAL', margin, yPos);
-            yPos += 10;
-            
-            doc.setFontSize(11);
-            doc.setTextColor(0, 0, 0);
-            doc.text(`Área: ${feedback.area || 'N/A'}`, margin, yPos);
-            yPos += 8;
-        }
-        
-        // ============ LÍDER Y COLABORADOR ============
-        doc.setFontSize(14);
-        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.text('INFORMACIÓN DEL LÍDER Y COLABORADOR', margin, yPos);
-        yPos += 10;
-        
-        doc.setFontSize(11);
-        doc.setTextColor(0, 0, 0);
-        
-        // Columna izquierda
-        doc.text(`Líder: ${nombreLider}`, margin, yPos);
-        doc.text(`Cuadrilla Líder: ${feedback.cuadrilla_lider || 'N/A'}`, margin, yPos + 8);
-        doc.text(`Colaborador: ${feedback.nombre_colaborador || 'N/A'}`, margin, yPos + 16);
-        
-        // Columna derecha
-        doc.text(`N° Empleado: ${feedback.num_empleado || 'N/A'}`, pageWidth / 2, yPos);
-        doc.text(`Cuadrilla Colaborador: ${feedback.cuadrilla_colaborador || 'N/A'}`, pageWidth / 2, yPos + 8);
-        
-        yPos += 30;
-        
-        // ============ DETALLES ============
-        doc.setFontSize(14);
-        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        
-        if (tipo === 'Escrita') {
-            doc.text('DETALLES DE LA RETROALIMENTACIÓN', margin, yPos);
-            yPos += 10;
-            
-            doc.setFontSize(11);
-            doc.setTextColor(0, 0, 0);
-            
-            // Impactos
-            let impactosTexto = 'Impactos identificados: ';
-            if (feedback.impactos && feedback.impactos.length > 0) {
-                impactosTexto += feedback.impactos.join(', ');
-            } else {
-                impactosTexto += 'N/A';
+                });
             }
             
-            const impactosLines = doc.splitTextToSize(impactosTexto, pageWidth - 2 * margin);
-            doc.text(impactosLines, margin, yPos);
-            yPos += impactosLines.length * 7 + 5;
-            
-            // Descripción
-            const descripcionTexto = `Descripción: ${feedback.descripcion_impacto || 'N/A'}`;
-            const descripcionLines = doc.splitTextToSize(descripcionTexto, pageWidth - 2 * margin);
-            doc.text(descripcionLines, margin, yPos);
-            yPos += descripcionLines.length * 7 + 5;
-            
-            // Causas
-            if (feedback.causas && feedback.causas.length > 0) {
-                let causasTexto = 'Causas identificadas: ';
-                causasTexto += feedback.causas.join(', ');
-                const causasLines = doc.splitTextToSize(causasTexto, pageWidth - 2 * margin);
-                doc.text(causasLines, margin, yPos);
-                yPos += causasLines.length * 7 + 5;
-            }
-            
-            // Explicación
-            if (feedback.explicacion_causa) {
-                const explicacionTexto = `Explicación: ${feedback.explicacion_causa}`;
-                const explicacionLines = doc.splitTextToSize(explicacionTexto, pageWidth - 2 * margin);
-                doc.text(explicacionLines, margin, yPos);
-                yPos += explicacionLines.length * 7 + 5;
-            }
-            
-            // Acción diferente
-            if (feedback.accion_diferente) {
-                const accionTexto = `Acción diferente: ${feedback.accion_diferente}`;
-                const accionLines = doc.splitTextToSize(accionTexto, pageWidth - 2 * margin);
-                doc.text(accionLines, margin, yPos);
-                yPos += accionLines.length * 7 + 5;
-            }
-            
-            // Compromiso
-            const compromisoTexto = `Compromiso: ${feedback.compromiso || 'N/A'}`;
-            const compromisoLines = doc.splitTextToSize(compromisoTexto, pageWidth - 2 * margin);
-            doc.text(compromisoLines, margin, yPos);
-            yPos += compromisoLines.length * 7 + 10;
-            
-        } else {
-            doc.text('RAZÓN DE LA RETROALIMENTACIÓN', margin, yPos);
-            yPos += 10;
-            
-            doc.setFontSize(11);
-            doc.setTextColor(0, 0, 0);
-            
-            const razonTexto = feedback.razon || 'N/A';
-            const razonLines = doc.splitTextToSize(razonTexto, pageWidth - 2 * margin);
-            doc.text(razonLines, margin, yPos);
-            yPos += razonLines.length * 7 + 15;
-        }
-        
-        // ============ FIRMAS ============
-        if (feedback.firmas && Object.keys(feedback.firmas).length > 0) {
-            // Verificar si necesitamos una nueva página para las firmas
-            if (yPos > pageHeight - 100) {
-                doc.addPage();
-                yPos = margin;
-            }
-            
-            doc.setFontSize(14);
-            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.text('FIRMAS', margin, yPos);
-            yPos += 10;
-            
-            const firmaWidth = 80;
-            const firmaHeight = 40;
-            const espacioHorizontal = 10;
-            const espacioVertical = 15;
-            const firmasPorFila = 2;
-            
-            let xOffset = margin;
-            let filaActual = 0;
-            
-            Object.entries(feedback.firmas).forEach(([persona, firmaDataURL], index) => {
-                // Verificar si necesitamos nueva fila
-                if (index > 0 && index % firmasPorFila === 0) {
-                    xOffset = margin;
-                    yPos += firmaHeight + espacioVertical + 15;
-                    filaActual++;
+            if (verbales) {
+                verbales.forEach(item => {
+                    const numEmpleado = item.num_empleado;
+                    if (!conteoEmpleados[numEmpleado]) {
+                        conteoEmpleados[numEmpleado] = {
+                            motivacion: 0,
+                            desarrollo: 0,
+                            verbal: 0,
+                            total: 0
+                        };
+                    }
                     
-                    // Verificar si necesitamos nueva página
-                    if (yPos + firmaHeight + espacioVertical > pageHeight - margin) {
-                        doc.addPage();
-                        yPos = margin + 10;
-                        filaActual = 0;
+                    conteoEmpleados[numEmpleado].verbal++;
+                    conteoEmpleados[numEmpleado].total++;
+                    
+                    const registroExistente = datosProcesados.find(d => d['N.Empleado'] === numEmpleado);
+                    if (registroExistente) {
+                        registroExistente['#Retros'] = conteoEmpleados[numEmpleado].total;
+                        registroExistente['Verbal'] = conteoEmpleados[numEmpleado].verbal;
+                    } else {
+                        datosProcesados.push({
+                            'N.Empleado': item.num_empleado,
+                            'Nombre': item.nombre_colaborador || 'N/A',
+                            '#Retros': conteoEmpleados[numEmpleado].total,
+                            'Líder que retroalimenta': item.lider_nombre?.split(' - ')[0] || 'N/A',
+                            'Cuadrilla colaborador': extraerLetraCuadrilla(item.cuadrilla_colaborador) || 'N/A',
+                            'Cuadrilla líder': extraerLetraCuadrilla(item.cuadrilla_lider) || 'N/A',
+                            'Motivación': 0,
+                            'Desarrollo': 0,
+                            'Verbal': conteoEmpleados[numEmpleado].verbal,
+                            'Tipo': 'Verbal',
+                            'Folio': item.folio,
+                            'Fecha': item.fecha,
+                            'Área': item.area || 'N/A'
+                        });
                     }
-                }
-                
-                // Nombre de la firma
-                doc.setFontSize(10);
-                doc.setTextColor(0, 0, 0);
-                const nombreFirma = persona === 'colaborador' ? 'Colaborador' :
-                                   persona === 'supervisor' ? 'Supervisor' :
-                                   persona === 'sindical' ? 'Líder Sindical' :
-                                   persona === 'rh' ? 'Recursos Humanos' :
-                                   persona.charAt(0).toUpperCase() + persona.slice(1);
-                doc.text(nombreFirma, xOffset + 5, yPos);
-                
-                // Cuadro para la firma
-                doc.setDrawColor(200, 200, 200);
-                doc.rect(xOffset, yPos + 3, firmaWidth, firmaHeight);
-                
-                // Insertar imagen de la firma si existe
-                try {
-                    if (firmaDataURL && firmaDataURL.startsWith('data:image')) {
-                        // Redimensionar la imagen para que quepa en el cuadro
-                        doc.addImage(
-                            firmaDataURL, 
-                            'PNG', 
-                            xOffset + 2, 
-                            yPos + 5, 
-                            firmaWidth - 4, 
-                            firmaHeight - 4
-                        );
-                    }
-                } catch (e) {
-                    console.log('No se pudo agregar firma:', e);
-                }
-                
-                xOffset += firmaWidth + espacioHorizontal;
-            });
-        }
-        
-        // ============ PIE DE PÁGINA ============
-        const totalPages = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-            doc.setPage(i);
-            doc.setFontSize(8);
-            doc.setTextColor(150, 150, 150);
-            doc.text(
-                `Página ${i} de ${totalPages} - Generado: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
-                pageWidth / 2,
-                pageHeight - 10,
-                null,
-                null,
-                'center'
-            );
+                });
+            }
             
-            // Línea separadora
-            doc.setDrawColor(200, 200, 200);
-            doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
+            const datosConsolidados = [];
+            const empleadosUnicos = [...new Set(datosProcesados.map(d => d['N.Empleado']))];
+            
+            empleadosUnicos.forEach(numEmpleado => {
+                const registrosEmpleado = datosProcesados.filter(d => d['N.Empleado'] === numEmpleado);
+                const ultimoRegistro = registrosEmpleado[0];
+                
+                datosConsolidados.push({
+                    'N.Empleado': numEmpleado,
+                    'Nombre': ultimoRegistro.Nombre,
+                    '#Retros': conteoEmpleados[numEmpleado].total,
+                    'Líder que retroalimenta': ultimoRegistro['Líder que retroalimenta'],
+                    'Cuadrilla colaborador': ultimoRegistro['Cuadrilla colaborador'],
+                    'Cuadrilla líder': ultimoRegistro['Cuadrilla líder'],
+                    'Motivación': conteoEmpleados[numEmpleado].motivacion,
+                    'Desarrollo': conteoEmpleados[numEmpleado].desarrollo,
+                    'Verbal': conteoEmpleados[numEmpleado].verbal
+                });
+            });
+            
+            const wb = XLSX.utils.book_new();
+            
+            const ws1 = XLSX.utils.json_to_sheet(datosConsolidados);
+            XLSX.utils.book_append_sheet(wb, ws1, "Resumen por Empleado");
+            
+            if (escritas && escritas.length > 0) {
+                const escritasSimplificadas = escritas.map(item => ({
+                    'Folio': item.folio,
+                    'Fecha': item.fecha,
+                    'N.Empleado': item.num_empleado,
+                    'Nombre': item.nombre_colaborador || 'N/A',
+                    'Tipo Feedback': item.tipo_feedback,
+                    'Líder': item.lider_nombre,
+                    'Cuadrilla Líder': extraerLetraCuadrilla(item.cuadrilla_lider) || 'N/A',
+                    'Cuadrilla Colaborador': extraerLetraCuadrilla(item.cuadrilla_colaborador) || 'N/A',
+                    'Área': item.area,
+                    'Impactos': item.impactos?.join(', '),
+                    'Descripción': item.descripcion_impacto
+                }));
+                const ws2 = XLSX.utils.json_to_sheet(escritasSimplificadas);
+                XLSX.utils.book_append_sheet(wb, ws2, "Retroalimentaciones Escritas");
+            }
+            
+            if (verbales && verbales.length > 0) {
+                const verbalesSimplificadas = verbales.map(item => ({
+                    'Folio': item.folio,
+                    'Fecha': item.fecha,
+                    'N.Empleado': item.num_empleado,
+                    'Nombre': item.nombre_colaborador || 'N/A',
+                    'Líder': item.lider_nombre,
+                    'Cuadrilla Líder': extraerLetraCuadrilla(item.cuadrilla_lider) || 'N/A',
+                    'Cuadrilla Colaborador': extraerLetraCuadrilla(item.cuadrilla_colaborador) || 'N/A',
+                    'Área': item.area || 'N/A',
+                    'Razón': item.razon
+                }));
+                const ws3 = XLSX.utils.json_to_sheet(verbalesSimplificadas);
+                XLSX.utils.book_append_sheet(wb, ws3, "Retroalimentaciones Verbales");
+            }
+            
+            const fecha = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(wb, `Reporte_Retroalimentaciones_${fecha}.xlsx`);
+            
+            alert('✅ Archivo Excel generado exitosamente');
+            
+        } catch (error) {
+            console.error('Error exportando Excel:', error);
+            alert('Error al exportar: ' + error.message);
         }
-        
-        // Guardar PDF
-        doc.save(`Retroalimentacion_${feedback.folio}.pdf`);
-        
-    } catch (error) {
-        console.error('Error generando PDF:', error);
-        alert('Error al generar PDF: ' + error.message);
     }
-}
-    
+
+    async function generatePDF(feedbackId, tipo) {
+        try {
+            let feedback;
+            
+            if (tipo === 'Escrita') {
+                const { data } = await supabaseClient
+                    .from('retroalimentaciones_escritas')
+                    .select('*')
+                    .eq('id', feedbackId)
+                    .single();
+                feedback = data;
+            } else {
+                const { data } = await supabaseClient
+                    .from('retroalimentaciones_verbales')
+                    .select('*')
+                    .eq('id', feedbackId)
+                    .single();
+                feedback = data;
+            }
+            
+            if (!feedback) {
+                alert('No se encontró la retroalimentación');
+                return;
+            }
+            
+            function extraerNombreLider(liderNombreCompleto) {
+                if (!liderNombreCompleto) return 'N/A';
+                const partes = liderNombreCompleto.split(' - ');
+                return partes[0];
+            }
+            
+            const nombreLider = extraerNombreLider(feedback.lider_nombre);
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const primaryColor = [207, 0, 46];
+            const pageWidth = doc.internal.pageSize.width;
+            const pageHeight = doc.internal.pageSize.height;
+            const margin = 20;
+            let yPos = margin;
+            
+            // ============ ENCABEZADO ============
+            doc.setFontSize(20);
+            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.text('FORMULARIO DE RETROALIMENTACIÓN', pageWidth / 2, yPos, null, null, 'center');
+            yPos += 15;
+            
+            doc.setFontSize(12);
+            doc.setTextColor(0, 0, 0);
+            doc.text(`Folio: ${feedback.folio}`, margin, yPos);
+            doc.text(`Fecha: ${feedback.fecha}`, pageWidth - margin - 40, yPos);
+            yPos += 8;
+            
+            doc.text(`Tipo: ${tipo}`, margin, yPos);
+            if (tipo === 'Escrita') {
+                doc.text(`Subtipo: ${feedback.tipo_feedback}`, pageWidth - margin - 40, yPos);
+            } else {
+                doc.text(`Área: ${feedback.area || 'N/A'}`, pageWidth - margin - 40, yPos);
+            }
+            yPos += 15;
+            
+            // ============ INFORMACIÓN GENERAL ============
+            if (tipo === 'Escrita') {
+                doc.setFontSize(14);
+                doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+                doc.text('INFORMACIÓN GENERAL', margin, yPos);
+                yPos += 10;
+                
+                doc.setFontSize(11);
+                doc.setTextColor(0, 0, 0);
+                doc.text(`Área: ${feedback.area || 'N/A'}`, margin, yPos);
+                yPos += 8;
+            }
+            
+            // ============ LÍDER Y COLABORADOR ============
+            doc.setFontSize(14);
+            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.text('INFORMACIÓN DEL LÍDER Y COLABORADOR', margin, yPos);
+            yPos += 10;
+            
+            doc.setFontSize(11);
+            doc.setTextColor(0, 0, 0);
+            
+            // Columna izquierda
+            doc.text(`Líder: ${nombreLider}`, margin, yPos);
+            doc.text(`Cuadrilla Líder: ${feedback.cuadrilla_lider || 'N/A'}`, margin, yPos + 8);
+            doc.text(`Colaborador: ${feedback.nombre_colaborador || 'N/A'}`, margin, yPos + 16);
+            
+            // Columna derecha
+            doc.text(`N° Empleado: ${feedback.num_empleado || 'N/A'}`, pageWidth / 2, yPos);
+            doc.text(`Cuadrilla Colaborador: ${feedback.cuadrilla_colaborador || 'N/A'}`, pageWidth / 2, yPos + 8);
+            
+            yPos += 30;
+            
+            // ============ DETALLES ============
+            doc.setFontSize(14);
+            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            
+            if (tipo === 'Escrita') {
+                doc.text('DETALLES DE LA RETROALIMENTACIÓN', margin, yPos);
+                yPos += 10;
+                
+                doc.setFontSize(11);
+                doc.setTextColor(0, 0, 0);
+                
+                // Impactos
+                let impactosTexto = 'Impactos identificados: ';
+                if (feedback.impactos && feedback.impactos.length > 0) {
+                    impactosTexto += feedback.impactos.join(', ');
+                } else {
+                    impactosTexto += 'N/A';
+                }
+                
+                const impactosLines = doc.splitTextToSize(impactosTexto, pageWidth - 2 * margin);
+                doc.text(impactosLines, margin, yPos);
+                yPos += impactosLines.length * 7 + 5;
+                
+                // Descripción
+                const descripcionTexto = `Descripción: ${feedback.descripcion_impacto || 'N/A'}`;
+                const descripcionLines = doc.splitTextToSize(descripcionTexto, pageWidth - 2 * margin);
+                doc.text(descripcionLines, margin, yPos);
+                yPos += descripcionLines.length * 7 + 5;
+                
+                // Causas
+                if (feedback.causas && feedback.causas.length > 0) {
+                    let causasTexto = 'Causas identificadas: ';
+                    causasTexto += feedback.causas.join(', ');
+                    const causasLines = doc.splitTextToSize(causasTexto, pageWidth - 2 * margin);
+                    doc.text(causasLines, margin, yPos);
+                    yPos += causasLines.length * 7 + 5;
+                }
+                
+                // Explicación
+                if (feedback.explicacion_causa) {
+                    const explicacionTexto = `Explicación: ${feedback.explicacion_causa}`;
+                    const explicacionLines = doc.splitTextToSize(explicacionTexto, pageWidth - 2 * margin);
+                    doc.text(explicacionLines, margin, yPos);
+                    yPos += explicacionLines.length * 7 + 5;
+                }
+                
+                // Acción diferente
+                if (feedback.accion_diferente) {
+                    const accionTexto = `Acción diferente: ${feedback.accion_diferente}`;
+                    const accionLines = doc.splitTextToSize(accionTexto, pageWidth - 2 * margin);
+                    doc.text(accionLines, margin, yPos);
+                    yPos += accionLines.length * 7 + 5;
+                }
+                
+                // Compromiso
+                const compromisoTexto = `Compromiso: ${feedback.compromiso || 'N/A'}`;
+                const compromisoLines = doc.splitTextToSize(compromisoTexto, pageWidth - 2 * margin);
+                doc.text(compromisoLines, margin, yPos);
+                yPos += compromisoLines.length * 7 + 10;
+                
+            } else {
+                doc.text('RAZÓN DE LA RETROALIMENTACIÓN', margin, yPos);
+                yPos += 10;
+                
+                doc.setFontSize(11);
+                doc.setTextColor(0, 0, 0);
+                
+                const razonTexto = feedback.razon || 'N/A';
+                const razonLines = doc.splitTextToSize(razonTexto, pageWidth - 2 * margin);
+                doc.text(razonLines, margin, yPos);
+                yPos += razonLines.length * 7 + 15;
+            }
+            
+            // ============ FIRMAS ============
+            if (feedback.firmas && Object.keys(feedback.firmas).length > 0) {
+                if (yPos > pageHeight - 100) {
+                    doc.addPage();
+                    yPos = margin;
+                }
+                
+                doc.setFontSize(14);
+                doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+                doc.text('FIRMAS', margin, yPos);
+                yPos += 10;
+                
+                const firmaWidth = 80;
+                const firmaHeight = 40;
+                const espacioHorizontal = 10;
+                const espacioVertical = 15;
+                const firmasPorFila = 2;
+                
+                let xOffset = margin;
+                let filaActual = 0;
+                
+                Object.entries(feedback.firmas).forEach(([persona, firmaDataURL], index) => {
+                    if (index > 0 && index % firmasPorFila === 0) {
+                        xOffset = margin;
+                        yPos += firmaHeight + espacioVertical + 15;
+                        filaActual++;
+                        
+                        if (yPos + firmaHeight + espacioVertical > pageHeight - margin) {
+                            doc.addPage();
+                            yPos = margin + 10;
+                            filaActual = 0;
+                        }
+                    }
+                    
+                    // Nombre de la firma
+                    doc.setFontSize(10);
+                    doc.setTextColor(0, 0, 0);
+                    const nombreFirma = persona === 'colaborador' ? 'Colaborador' :
+                                       persona === 'supervisor' ? 'Supervisor' :
+                                       persona === 'sindical' ? 'Líder Sindical' :
+                                       persona === 'rh' ? 'Recursos Humanos' :
+                                       persona.charAt(0).toUpperCase() + persona.slice(1);
+                    doc.text(nombreFirma, xOffset + 5, yPos);
+                    
+                    // Cuadro para la firma
+                    doc.setDrawColor(200, 200, 200);
+                    doc.rect(xOffset, yPos + 3, firmaWidth, firmaHeight);
+                    
+                    // Insertar imagen de la firma si existe
+                    try {
+                        if (firmaDataURL && firmaDataURL.startsWith('data:image')) {
+                            doc.addImage(
+                                firmaDataURL, 
+                                'PNG', 
+                                xOffset + 2, 
+                                yPos + 5, 
+                                firmaWidth - 4, 
+                                firmaHeight - 4
+                            );
+                        }
+                    } catch (e) {
+                        console.log('No se pudo agregar firma:', e);
+                    }
+                    
+                    xOffset += firmaWidth + espacioHorizontal;
+                });
+            }
+            
+            // ============ PIE DE PÁGINA ============
+            const totalPages = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= totalPages; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.setTextColor(150, 150, 150);
+                doc.text(
+                    `Página ${i} de ${totalPages} - Generado: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
+                    pageWidth / 2,
+                    pageHeight - 10,
+                    null,
+                    null,
+                    'center'
+                );
+                
+                // Línea separadora
+                doc.setDrawColor(200, 200, 200);
+                doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
+            }
+            
+            // Guardar PDF
+            doc.save(`Retroalimentacion_${feedback.folio}.pdf`);
+            
+        } catch (error) {
+            console.error('Error generando PDF:', error);
+            alert('Error al generar PDF: ' + error.message);
+        }
+    }
+
     async function exportGeneralPDF() {
         try {
             const { data: escritas } = await supabaseClient
@@ -2520,37 +2875,36 @@ row.appendChild(tdArea);
             doc.text('LISTA DE RETROALIMENTACIONES', 20, yPos);
             yPos += 10;
             
-            // Lista de retroalimentaciones para el PDF general
-const headers = [['Folio', 'Fecha', 'Tipo', 'N° Empleado', 'Nombre', 'Líder', 'Cuadrilla Colab']];
-const data = [];
-
-if (escritas) {
-    escritas.forEach(item => {
-        data.push([
-            item.folio,
-            item.fecha,
-            'Escrita',
-            item.num_empleado,
-            item.nombre_colaborador || 'N/A',
-            item.lider_nombre?.split(' - ')[0] || 'N/A',
-            item.cuadrilla_colaborador || 'N/A'
-        ]);
-    });
-}
-
-if (verbales) {
-    verbales.forEach(item => {
-        data.push([
-            item.folio,
-            item.fecha,
-            'Verbal',
-            item.num_empleado,
-            item.nombre_colaborador || 'N/A',
-            item.lider_nombre?.split(' - ')[0] || 'N/A',
-            item.cuadrilla_colaborador || 'N/A'
-        ]);
-    });
-}
+            const headers = [['Folio', 'Fecha', 'Tipo', 'N° Empleado', 'Nombre', 'Líder', 'Cuadrilla Colab']];
+            const data = [];
+            
+            if (escritas) {
+                escritas.forEach(item => {
+                    data.push([
+                        item.folio,
+                        item.fecha,
+                        'Escrita',
+                        item.num_empleado,
+                        item.nombre_colaborador || 'N/A',
+                        item.lider_nombre?.split(' - ')[0] || 'N/A',
+                        item.cuadrilla_colaborador || 'N/A'
+                    ]);
+                });
+            }
+            
+            if (verbales) {
+                verbales.forEach(item => {
+                    data.push([
+                        item.folio,
+                        item.fecha,
+                        'Verbal',
+                        item.num_empleado,
+                        item.nombre_colaborador || 'N/A',
+                        item.lider_nombre?.split(' - ')[0] || 'N/A',
+                        item.cuadrilla_colaborador || 'N/A'
+                    ]);
+                });
+            }
             
             doc.autoTable({
                 startY: yPos,
@@ -2568,375 +2922,7 @@ if (verbales) {
             alert('Error al generar reporte: ' + error.message);
         }
     }
-    // ============================================
-// FUNCIONES MEJORADAS PARA CANVAS Y FIRMAS
-// ============================================
 
-// Variables globales para instancias de canvas
-let canvasInstances = {};
-
-function initializeCanvas(canvasId, clearBtnId) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return null;
-    
-    const ctx = canvas.getContext('2d');
-    
-    // Configuración para mejor soporte móvil
-    canvas.style.touchAction = 'none'; // Previene scroll mientras se dibuja
-    
-    const updateCanvasSize = () => {
-        const parentWidth = canvas.parentElement.clientWidth;
-        canvas.width = parentWidth * (window.devicePixelRatio || 1);
-        canvas.height = 150 * (window.devicePixelRatio || 1);
-        
-        // Escalar el contexto para alta resolución
-        ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
-        
-        // Hacer canvas responsivo visualmente
-        canvas.style.width = `${parentWidth}px`;
-        canvas.style.height = '150px';
-        
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = '#333333';
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-    };
-    
-    updateCanvasSize();
-    
-    let isDrawing = false;
-    let lastX = 0;
-    let lastY = 0;
-    let hasSignature = false;
-    
-    function getCoordinates(e) {
-        const rect = canvas.getBoundingClientRect();
-        let x, y;
-        
-        if (e.type.includes('mouse')) {
-            x = e.clientX - rect.left;
-            y = e.clientY - rect.top;
-        } else if (e.type.includes('touch')) {
-            e.preventDefault();
-            x = e.touches[0].clientX - rect.left;
-            y = e.touches[0].clientY - rect.top;
-        }
-        
-        // Ajustar coordenadas para el escalado
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        
-        return [x * scaleX, y * scaleY];
-    }
-    
-    function startDrawing(e) {
-        isDrawing = true;
-        [lastX, lastY] = getCoordinates(e);
-        hasSignature = true;
-        
-        // Dibujar un punto inicial
-        ctx.beginPath();
-        ctx.arc(lastX, lastY, ctx.lineWidth / 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(lastX, lastY);
-    }
-    
-    function draw(e) {
-        if (!isDrawing) return;
-        
-        const [x, y] = getCoordinates(e);
-        
-        ctx.lineTo(x, y);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        
-        [lastX, lastY] = [x, y];
-    }
-    
-    function stopDrawing() {
-        if (isDrawing) {
-            isDrawing = false;
-            ctx.beginPath();
-        }
-    }
-    
-    // Eventos para desktop
-    canvas.addEventListener('mousedown', startDrawing);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stopDrawing);
-    canvas.addEventListener('mouseout', stopDrawing);
-    
-    // Eventos para móvil
-    canvas.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 1) {
-            startDrawing(e);
-        }
-    }, { passive: false });
-    
-    canvas.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 1) {
-            draw(e);
-        }
-    }, { passive: false });
-    
-    canvas.addEventListener('touchend', stopDrawing);
-    canvas.addEventListener('touchcancel', stopDrawing);
-    
-    // Limpiar firma
-    const clearBtn = document.getElementById(clearBtnId);
-    if (clearBtn) {
-        clearBtn.addEventListener('click', () => {
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.strokeStyle = '#333333';
-            ctx.lineWidth = 2;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            hasSignature = false;
-        });
-    }
-    
-    window.addEventListener('resize', updateCanvasSize);
-    
-    // Retornar objeto con estado de la firma
-    return {
-        canvas: canvas,
-        hasSignature: () => hasSignature,
-        clear: () => {
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            hasSignature = false;
-        }
-    };
-}
-
-function initializeAllCanvas() {
-    const canvasConfigs = [
-        {id: 'signature-canvas-colaborador', clearBtn: 'clear-colaborador', required: true},
-        {id: 'signature-canvas-supervisor', clearBtn: 'clear-supervisor', required: true},
-        {id: 'signature-canvas-sindical', clearBtn: 'clear-sindical', required: true},
-        {id: 'signature-canvas-rh', clearBtn: 'clear-rh', required: true},
-        {id: 'signature-canvas-verbal-colaborador', clearBtn: 'clear-verbal-colaborador', required: true},
-        {id: 'signature-canvas-verbal-supervisor', clearBtn: 'clear-verbal-supervisor', required: true}
-    ];
-    
-    canvasConfigs.forEach(config => {
-        canvasInstances[config.id] = initializeCanvas(config.id, config.clearBtn);
-    });
-}
-
-// ============================================
-// VALIDACIONES MEJORADAS DE FIRMAS
-// ============================================
-
-function validarFirmasCompletas(formType = 'escrita') {
-    const firmasRequeridas = {
-        'escrita': [
-            'signature-canvas-colaborador',
-            'signature-canvas-supervisor',
-            'signature-canvas-sindical',
-            'signature-canvas-rh'
-        ],
-        'verbal': [
-            'signature-canvas-verbal-colaborador',
-            'signature-canvas-verbal-supervisor'
-        ]
-    };
-    
-    const canvasIds = firmasRequeridas[formType] || [];
-    const firmasFaltantes = [];
-    
-    canvasIds.forEach(canvasId => {
-        const instance = canvasInstances[canvasId];
-        if (instance && !instance.hasSignature()) {
-            const nombreFirma = canvasId.includes('colaborador') ? 'Colaborador' :
-                              canvasId.includes('supervisor') ? 'Supervisor' :
-                              canvasId.includes('sindical') ? 'Líder Sindical' :
-                              canvasId.includes('rh') ? 'Recursos Humanos' :
-                              'Firma';
-            
-            firmasFaltantes.push(nombreFirma);
-            
-            const canvas = document.getElementById(canvasId);
-            if (canvas) {
-                canvas.style.border = '2px solid #CF002E';
-                canvas.style.borderRadius = '8px';
-                
-                setTimeout(() => {
-                    canvas.style.border = '1px solid var(--medium-gray)';
-                }, 3000);
-            }
-        }
-    });
-    
-    return {
-        todasCompletas: firmasFaltantes.length === 0,
-        firmasFaltantes: firmasFaltantes
-    };
-}
-
-function canvasTieneContenido(canvas) {
-    if (!canvas) return false;
-    
-    const ctx = canvas.getContext('2d');
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
-    
-    for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-        const a = data[i + 3];
-        
-        if (a > 10 && (r < 250 || g < 250 || b < 250)) {
-            return true;
-        }
-    }
-    
-    return false;
-}
-
-function capturarFirmas(formType = 'escrita') {
-    const firmas = {};
-    
-    const firmasConfig = {
-        'escrita': [
-            {id: 'signature-canvas-colaborador', key: 'colaborador'},
-            {id: 'signature-canvas-supervisor', key: 'supervisor'},
-            {id: 'signature-canvas-sindical', key: 'sindical'},
-            {id: 'signature-canvas-rh', key: 'rh'}
-        ],
-        'verbal': [
-            {id: 'signature-canvas-verbal-colaborador', key: 'colaborador'},
-            {id: 'signature-canvas-verbal-supervisor', key: 'supervisor'}
-        ]
-    };
-    
-    const config = firmasConfig[formType] || [];
-    
-    config.forEach(({id, key}) => {
-        const canvas = document.getElementById(id);
-        if (canvas && canvasTieneContenido(canvas)) {
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
-            
-            tempCanvas.width = 400;
-            tempCanvas.height = 150;
-            
-            tempCtx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
-            firmas[key] = tempCanvas.toDataURL('image/png', 0.7);
-        }
-    });
-    
-    return firmas;
-}
-
-// ============================================
-// FUNCIÓN AUXILIAR PARA PROCESAR CUADRILLAS
-// ============================================
-
-function extraerLetraCuadrilla(cuadrilla) {
-    if (!cuadrilla) return '';
-    
-    if (cuadrilla.length === 1) {
-        return cuadrilla;
-    }
-    
-    const match = cuadrilla.match(/[A-Za-z]$/);
-    return match ? match[0] : cuadrilla;
-}
-    // ============================================
-    // FUNCIONES AUXILIARES
-    // ============================================
-    
-    function resetFormEscrita() {
-        document.getElementById('formEscrita').reset();
-        document.getElementById('seccion-colaborador').classList.add('hidden');
-        document.getElementById('area-otro-container').classList.add('hidden');
-        document.getElementById('area-otro').required = false;
-        document.getElementById('lider-otro-container').classList.add('hidden');
-        
-        const canvases = ['signature-canvas-colaborador', 'signature-canvas-supervisor', 
-                         'signature-canvas-sindical', 'signature-canvas-rh'];
-        canvases.forEach(canvasId => {
-            const canvas = document.getElementById(canvasId);
-            if (canvas) {
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-            }
-        });
-        
-        generarFoliosIniciales();
-    }
-    
-    function resetFormVerbal() {
-        document.getElementById('formVerbal').reset();
-        document.getElementById('image-preview').style.display = 'none';
-        document.getElementById('lider-verbal-otro-container').classList.add('hidden');
-         document.getElementById('area-verbal-otro-container').classList.add('hidden'); 
-      
-        document.getElementById('area-verbal-otro').required = false;
-          const canvases = ['signature-canvas-verbal-colaborador', 'signature-canvas-verbal-supervisor'];
-        canvases.forEach(canvasId => {
-            const canvas = document.getElementById(canvasId);
-            if (canvas) {
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-            }
-        });
-        
-        generarFoliosIniciales();
-    }
-    
-    function showTab(tabId) {
-        document.querySelectorAll('.nav-tab').forEach(tab => {
-            tab.classList.remove('active');
-        });
-        
-        const activeTab = document.querySelector(`.nav-tab[data-tab="${tabId}"]`);
-        if (activeTab) activeTab.classList.add('active');
-        
-        document.querySelectorAll('.content').forEach(content => {
-            content.classList.add('hidden');
-        });
-        
-        document.getElementById(tabId).classList.remove('hidden');
-        
-        setTimeout(() => {
-            initializeAllCanvas();
-        }, 100);
-    }
-    
-    function aplicarFiltro() {
-        const fecha = document.getElementById('filter-date').value;
-        if (!fecha) {
-            alert('Por favor seleccione una fecha');
-            return;
-        }
-        actualizarTablaFeedbacks(fecha);
-    }
-    
-    function limpiarFiltro() {
-        document.getElementById('filter-date').value = new Date().toISOString().split('T')[0];
-        actualizarTablaFeedbacks();
-    }
-    
-    // Funciones para modal PDF individual
-    function openPdfModal() {
-        document.getElementById('pdf-modal').style.display = 'block';
-        cargarFeedbacksParaPDF();
-    }
-    
-    function closePdfModal() {
-        document.getElementById('pdf-modal').style.display = 'none';
-    }
-    
     async function cargarFeedbacksParaPDF() {
         try {
             const select = document.getElementById('pdf-feedback-select');
@@ -2977,7 +2963,7 @@ function extraerLetraCuadrilla(cuadrilla) {
             select.innerHTML = '<option value="">Error al cargar</option>';
         }
     }
-    
+
     async function generateIndividualPDF() {
         const select = document.getElementById('pdf-feedback-select');
         const value = select.value;
@@ -2992,7 +2978,24 @@ function extraerLetraCuadrilla(cuadrilla) {
         closePdfModal();
         await generatePDF(parseInt(id), tipo === 'escrita' ? 'Escrita' : 'Verbal');
     }
+
+    // ============================================
+    // INICIALIZACIÓN PRINCIPAL
+    // ============================================
+
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeSupabase();
+        
+        setTimeout(() => {
+            initializeAllCanvas();
+            setupEventListeners();
+            cargarLideres();
+            actualizarFechas();
+        }, 500);
+        
+        // Configurar evento de login
+        document.getElementById('btn-login').addEventListener('click', handleLogin);
+    });
     </script>
-    
 </body>
 </html>
